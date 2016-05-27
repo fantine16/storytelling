@@ -9,3 +9,5 @@
 *.tar
 *.zip
 *.tar.gz
+model/
+
