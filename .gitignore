@@ -1,0 +1,11 @@
+*.json
+*.h5
+.idea/
+*.jpg
+*.png
+*.bmp
+*.jpeg
+*.gif
+*.tar
+*.zip
+*.tar.gz
