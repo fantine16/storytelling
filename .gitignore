@@ -9,5 +9,5 @@
 *.tar
 *.zip
 *.tar.gz
-model/
 !doc/*.png
+*.caffemodel
