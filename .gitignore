@@ -10,4 +10,4 @@
 *.zip
 *.tar.gz
 model/
-
+!doc/*.png

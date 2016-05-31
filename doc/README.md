@@ -1,5 +1,5 @@
 # storytelling 架构
-[TOC]
+
 ## 概述
 
 文件夹：dataset, doc
@@ -87,13 +87,26 @@ prepro.py的任务：
 
 *输出文件：**storytelling.h5, storytelling.json***
 storytelling.h5:
+
 - labels: 列表，有247855个元素。每个元素是一个长度16的整型数组，是标注的编码。
 - label_start_ix：列表，有49561个元素。第k个值，表示第k个story的标注在“labels”中的位置。
 - images：4D tensor，存resize之后的图片。(247855,3,256,256)
 
+labels 样例：
+![](https://raw.githubusercontent.com/fantine16/storytelling/master/doc/encoded_anno_samp.png)
+label_start_ix 样例：
+![](https://raw.githubusercontent.com/fantine16/storytelling/master/doc/label_start_ix.png)
+
 storytelling.json，字典：
+
 - ix_to_word：字典，单词表，大小为9770。
  - key：单词数字编码
  - value：单词字符串
 - story：列表，49671个元素，每个元素是story的详细信息。列表的顺序和storytelling.h5的labels和label_start_ix的顺序是一致的。
+
+ix_to_word 单词表样例：
+ ![](https://raw.githubusercontent.com/fantine16/storytelling/master/doc/itow_samp.png)
+story 样例：
+ ![](https://raw.githubusercontent.com/fantine16/storytelling/master/doc/story_samp.png)
+
 
