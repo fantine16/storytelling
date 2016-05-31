@@ -93,8 +93,11 @@ storytelling.h5:
 - images：4D tensor，存resize之后的图片。(247855,3,256,256)
 
 labels 样例：
+
 ![](https://raw.githubusercontent.com/fantine16/storytelling/master/doc/encoded_anno_samp.png)
+
 label_start_ix 样例：
+
 ![](https://raw.githubusercontent.com/fantine16/storytelling/master/doc/label_start_ix.png)
 
 storytelling.json，字典：
@@ -105,8 +108,11 @@ storytelling.json，字典：
 - story：列表，49671个元素，每个元素是story的详细信息。列表的顺序和storytelling.h5的labels和label_start_ix的顺序是一致的。
 
 ix_to_word 单词表样例：
- ![](https://raw.githubusercontent.com/fantine16/storytelling/master/doc/itow_samp.png)
+
+![](https://raw.githubusercontent.com/fantine16/storytelling/master/doc/itow_samp.png)
+
 story 样例：
- ![](https://raw.githubusercontent.com/fantine16/storytelling/master/doc/story_samp.png)
+
+![](https://raw.githubusercontent.com/fantine16/storytelling/master/doc/story_samp.png)
 
 
