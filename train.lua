@@ -32,6 +32,7 @@ cmd:option('-batch_size',8,'what is the batch size in number of images per batch
 cmd:option('-images_per_story',5,'number of images for each story during training.')
 cmd:option('-finetune_cnn_after', -1, 'After what iteration do we start finetuning the CNN? (-1 = disable; never finetune, 0 = finetune from start)')
 cmd:option('-grad_clip',0.1,'clip gradients at this value (note should be lower than usual 5 because we normalize grads by both batch and seq_length)')
+cmd:option('-drop_prob_lm', 0.5, 'strength of dropout in the Language Model RNN')
 
 -- Evaluation/Checkpointing
 cmd:option('-losses_log_every', 25, 'How often do we snapshot losses, for inclusion in the progress dump? (0 = disable)')
