@@ -124,33 +124,3 @@ function DataLoader:getBatch(opt)
 	return data
 
 end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
