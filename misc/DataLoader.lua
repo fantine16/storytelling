@@ -90,30 +90,28 @@ function DataLoader:getBatch(opt)
 		ix = split_ix[ri]
 		assert(ix ~= nil, 'bug: split ' .. split .. ' was accessed out of bounds with ' .. ri)
 
-
-		for j=images_per_story*ix+1,(images_per_story+1)*ix do
-			imgs_per_story[j]=self.h5_file:read('/images'):partial({j,j},{1,self.num_channels},{1,self.max_image_size},{1,self.max_image_size})
-			labels_per_story[j]=self.h5_file:read('/labels'):partial({j, j}, {1,self.seq_length})
+		for j =1, images_per_story do
+			local k = images_per_story*ix + j
+			imgs_per_story[j]=self.h5_file:read('/images'):partial({k, k},{1,self.num_channels},{1,self.max_image_size},{1,self.max_image_size})
+			labels_per_story[j]=self.h5_file:read('/labels'):partial({k, k}, {1,self.seq_length})
 		end
+
 		onestory.images=imgs_per_story
-		onestory.labels=labels_per_story:transpose(1,2):contiguous()-- note: make label sequences go down as columns
+		onestory.labels=labels_per_story:contiguous() --:transpose(1,2) :contiguous()-- note: make label sequences go down as columns
 		table.insert(story_batch,onestory)
 	end
 
 	local imgs={} -- imgs的第t个元素是 story 的第t个图像， 每个元素是 images tensor，(batch_size*3*224*224)
 	local labels={} -- labels的第t个元素是story的第t个标注， 每个元素是 tensor，(batch_size*seq_length)
 	local batch_size=#story_batch
-	local num_img_per_story=story_batch.images:size()[1]
-	local seq_length=story_batch.labels:size()[2]
-	for t=1,num_img_per_story do
-		local im = torch.floadTensor(batch_size,3,224,224)
-		local la =torch.floadTensor(batch_size,seq_length)
-		if torch.type(story_batch[0].images)=='torch.cudaTensor' then
-			im=im:cuda()
-		end
+	print('batch_size=' .. batch_size)
+	for t=1,images_per_story do
+		local im = torch.FloatTensor(batch_size,3,256,256)
+		local la =torch.FloatTensor(batch_size,self.seq_length)
 		for k=1,batch_size do
-			im[t]=story_batch[k].images[t]
-			la[t]=story_batch[k].labels[t]
+			print('t=' .. t .. ';k=' .. k)
+			im[k]=story_batch[k].images[t]
+			la[k]=story_batch[k].labels[t]
 		end
 		table.insert(imgs,im)
 		table.insert(labels,la)

@@ -19,16 +19,16 @@ cmd:text('Train an StoryTelling model')
 cmd:text()
 cmd:text('Options')
 -- Data input settings
-cmd:option('-input_h5','storytelling.h5','path to the h5file containing the preprocessed dataset')
-cmd:option('-input_json','storytelling.json','path to the json file containing additional info and vocab')
+cmd:option('-input_h5','dataset/storytelling.h5','path to the h5file containing the preprocessed dataset')
+cmd:option('-input_json','dataset/storytelling.json','path to the json file containing additional info and vocab')
 cmd:option('-cnn_proto','model/VGG_ILSVRC_16_layers_deploy.prototxt','path to CNN prototxt file in Caffe format. Note this MUST be a VGGNet-16 right now.')
 cmd:option('-cnn_model','model/VGG_ILSVRC_16_layers.caffemodel','path to CNN model file containing the weights, Caffe format. Note this MUST be a VGGNet-16 right now.')
 -- Model settings
 cmd:option('-rnn_size',512,'size of the rnn in number of hidden nodes in each layer')
 cmd:option('-input_encoding_size',512,'the encoding size of each token in the vocabulary, and the image.')
 -- Optimization: General
-cmd:option('-max_iters', -1, 'max number of iterations to run for (-1 = run forever)')
-cmd:option('-batch_size',8,'what is the batch size in number of images per batch? (there will be x seq_per_img sentences)')
+cmd:option('-max_iters',100, 'max number of iterations to run for (-1 = run forever)')
+cmd:option('-batch_size',4,'what is the batch size in number of images per batch? (there will be x seq_per_img sentences)')
 cmd:option('-images_per_story',5,'number of images for each story during training.')
 cmd:option('-finetune_cnn_after', -1, 'After what iteration do we start finetuning the CNN? (-1 = disable; never finetune, 0 = finetune from start)')
 cmd:option('-grad_clip',0.1,'clip gradients at this value (note should be lower than usual 5 because we normalize grads by both batch and seq_length)')
@@ -81,13 +81,12 @@ protos.lm = nn.LanguageModel(lmOpt)
   -- initialize the ConvNet
 local cnn_backend = opt.backend
 local cnn_raw = loadcaffe.load(opt.cnn_proto, opt.cnn_model, cnn_backend)
-print(cnn_raw)
-assert(false)
+--print(cnn_raw)
+--assert(false)
 protos.cnn = net_utils.build_cnn(cnn_raw, {encoding_size = opt.input_encoding_size, backend = cnn_backend})
 -- initialize a special FeatExpander module that "corrects" for the batch number discrepancy 
 -- where we have multiple captions per one image in a batch. This is done for efficiency
 -- because doing a CNN forward pass is expensive. We expand out the CNN features for each sentence
-protos.expander = nn.FeatExpander(opt.seq_per_img)
 -- criterion for the language model
 protos.crit = nn.LanguageModelCriterion()
 
@@ -104,6 +103,7 @@ print('total number of parameters in LM: ', params:nElement())
 print('total number of parameters in CNN: ', cnn_params:nElement())
 assert(params:nElement() == grad_params:nElement())
 assert(cnn_params:nElement() == cnn_grad_params:nElement())
+--assert(false)
 -------------------------------------------------------------------------------
 -- Validation evaluation
 -------------------------------------------------------------------------------
@@ -209,7 +209,7 @@ local function lossFun()
 	return loss
 end
 
-assert(false)
+--assert(false)
 
 -------------------------------------------------------------------------------
 -- Main loop
@@ -225,8 +225,10 @@ local best_score
 while true do	
 	-- eval loss/gradient
 	local loss = lossFun()
+	
 	if iter % opt.losses_log_every == 0 then loss_history[iter] = losses.total_loss end
 	print(string.format('iter %d: %f', iter, losses.total_loss))
+
 	if (iter % opt.save_checkpoint_every == 0 or iter == opt.max_iters) then
 		-- evaluate the validation performance
 		local val_loss, val_predictions, lang_stats = eval_split('val', {val_images_use = opt.val_images_use})
@@ -270,11 +272,9 @@ while true do
 				checkpoint.vocab = loader:getVocab()
 				torch.save(checkpoint_path .. '.t7', checkpoint)
 				print('wrote checkpoint to ' .. checkpoint_path .. '.t7')
-				end
 			end
 		end
 	end
-
 
 
 	-- decay the learning rate for both LM and CNN
@@ -327,5 +327,5 @@ while true do
 		break
 	end
 	if opt.max_iters > 0 and iter >= opt.max_iters then break end -- stopping criterion
-
+	
 end

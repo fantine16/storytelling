@@ -23,7 +23,7 @@ function layer:__init(opt)
 	-- create the core lstm network. note +1 for both the START and END tokens
 	self.core = LSTM.lstm(self.input_encoding_size, self.vocab_size + 1, self.rnn_size, self.num_layers, dropout)
 	self.lookup_table = nn.LookupTable(self.vocab_size + 1, self.input_encoding_size)
-	--self:_createInitState(1) -- will be lazily resized later during forward passes
+	self:_createInitState(1) -- will be lazily resized later during forward passes,改行删掉后，会报错的。
 end
 
 function layer:_createInitState(batch_size)
@@ -41,6 +41,9 @@ function layer:_createInitState(batch_size)
 		end
 	end
 	self.num_state = #self.init_state
+	--print(torch.type(self.init_state[1]))
+	--print(torch.type(self.init_state[2]))
+	--print('!!!')
 end
 
 function layer:parameters()
@@ -148,8 +151,12 @@ function layer:updateOutput(input)
 	-- input每个元素是一个完整的story，元素的个数是batch大小
 	local imgs=input.images -- imgs的第t个元素是story的第t个图像，每个元素是images tensor，(batch_size*3*224*224)
 	local labels=input.labels -- labels的第t个元素是story的第t个标注， 每个元素是 tensor，(batch_size*seq_length)
+	--print('img size:')
+	--print(imgs[1]:size())
+	--print('labels size:')
+	--print(labels[1]:size())
 	local batch_size=imgs[1]:size()[1]
-	local seq_length=labels:size()[2]
+	local seq_length=labels[1]:size()[2]
 
 
 	if self.clones == nil then self:createClones() end	-- lazily create clones on first forward pass
@@ -174,7 +181,7 @@ function layer:updateOutput(input)
 				xt = self.lookup_tables[t]:forward(it) -- NxK sized input (token embedding vectors)
 			else
 				-- feed in the rest of the sequence...
-				local it=labels[k][t-2]:clone()
+				local it=labels[k][{{},{t-2}}]:clone():resize(labels[k]:size(1))
 
 				--[[
 					seq may contain zeros as null tokens, make sure we take them out to any arbitrary token
@@ -184,12 +191,21 @@ function layer:updateOutput(input)
 					in the criterion, so computation based on this value will be noop for the optimization.
 				--]]
 				it[torch.eq(it,0)] = self.vocab_size + 1 --设置为终止词,end token
+				print(it)
 				self.lookup_tables_inputs[ix_t] = it
 				xt = self.lookup_tables[ix_t]:forward(it)
+				--print('it size')
+				--print(it:size())
+				--print('xt size')
+				--print(xt:size())
 
 			end
 
 			self.inputs[ix_t]={xt, unpack(self.state[ix_t-1])}
+			--print('ix_t : ' .. ix_t)
+			--print(self.inputs[ix_t][1]:size())
+			--print(self.inputs[ix_t][2]:size())
+			--print(self.inputs[ix_t][3]:size())
 			local out = self.clones[ix_t]:forward(self.inputs[ix_t])
 			self.output[ix_t]=out[self.num_state+1]
 			self.state[ix_t]={} -- the rest is state
@@ -240,26 +256,30 @@ function crit:updateOutput(input, labels)
 	--TODO
 	self.gradInput:resizeAs(input):zero() -- reset to zeros
 	local L,N,Mp1 = input:size(1), input:size(2), input:size(3)
-	local D=labels[1]:size(1) --16
 	local num_img_per_story = #labels --5
-	local seq_length=labels[1]:size(1) --16
+	local seq_length=labels[1]:size(2) --16
+	print('input size')
+	print(input:size())
+	print('labels size')
+	print(labels[1]:size())
+	print('L=' .. L .. ';N=' .. N .. ';Mp1=' .. Mp1)
+	
 	local n=0
-	for b=1, N do
-		for t=2,L do
-			;
-		end
-	end
-
+	local loss=0
 	for b=1,N do
 		for k=1,num_img_per_story do
 			local first_time=true
 			for t=2,seq_length+2 do
 				-- fetch the index of the next token in the sequence
 				local target_index
-				if t-1>D then
+				print('k=' .. k ..';t=' .. t)
+				if t-1>seq_length then
 					target_index = 0
+					print('x')
 				else
-					target_index = labels[k][{t-1,b}]
+					target_index = labels[k][{b,t-1}]
+					print('y')
+					print(target_index)
 				end
 				-- the first time we see null token as next index, actually want the model to predict the END token
 				if target_index == 0 and first_time then
@@ -270,6 +290,9 @@ function crit:updateOutput(input, labels)
 				-- if there is a non-null next token, enforce loss!
 				if target_index ~= 0 then
 					-- accumulate loss
+					--print((k-1)*(seq_length+2)+t)
+					--print(b)
+					--print(target_index)
 					loss=loss - input[{(k-1)*(seq_length+2)+t,b,target_index}]
 					self.gradInput[{(k-1)*(seq_length+2)+t,b,target_index}] = -1
 					n = n + 1
