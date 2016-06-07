@@ -95,7 +95,7 @@ takes a batch of images and runs the model forward in sampling mode
 Careful: make sure model is in :evaluate() mode if you're calling this.
 --]]
 function layer:sample(data, opt)
-	local imgs=input.images -- imgs的第t个元素是story的第t个图像，每个元素是images tensor，(batch_size*3*224*224)
+	local imgs=data.images -- imgs的第t个元素是story的第t个图像，每个元素是images tensor，(batch_size*3*224*224)
 	local batch_size = data.images[1]:size(1)
 	self:_createInitState(batch_size)
 	local state = self.init_state
@@ -109,12 +109,13 @@ function layer:sample(data, opt)
 		local seqLogprobs_t = torch.FloatTensor(self.seq_length, batch_size)
 		for t=1,self.seq_length+2 do
 			local xt
+			local it
 			local ix_t=(k-1)*(self.seq_length+2)+t
 
 			if t==1 then
 				xt=imgs[k]
 			elseif t==2 then
-				local it = torch.LongTensor(batch_size):fill(self.vocab_size+1)
+				it = torch.LongTensor(batch_size):fill(self.vocab_size+1)
 				xt = self.lookup_tables[t]:forward(it)
 			else
 				if sample_max ==1 then
@@ -128,7 +129,10 @@ function layer:sample(data, opt)
 			end
 
 			if t>=3 then
-				seq_t[t-1]=it -- record the samples
+				--print('LanguageModel 132: it size')
+				--print(it:size())
+				--print('k = ' .. k .. 't = ' .. t)
+				seq_t[t-2]=it -- record the samples
 				seqLogprobs_t[t-2] = sampleLogprobs:view(-1):float() -- and also their log likelihoods
 			end
 
@@ -191,7 +195,7 @@ function layer:updateOutput(input)
 					in the criterion, so computation based on this value will be noop for the optimization.
 				--]]
 				it[torch.eq(it,0)] = self.vocab_size + 1 --设置为终止词,end token
-				print(it)
+				--print(it)
 				self.lookup_tables_inputs[ix_t] = it
 				xt = self.lookup_tables[ix_t]:forward(it)
 				--print('it size')
@@ -218,12 +222,13 @@ function layer:updateOutput(input)
 
 end
 
-function layer:updateGradInput(input, gradOutput) --gradOutput dim: (90,20,9568)
+function layer:updateGradInput(input, gradOutput) --gradOutput dim: (90,10,9771)
 	local dimgs={} -- grad on input images
 	-- go backwards and lets compute gradients
-	local batch_size=gradOutput:size(2)
+	local batch_size=gradOutput:size(2) -- 10
 	local dstate = {[gradOutput:size(1)] = self.init_state} -- why? 90
 	for t = gradOutput:size(1),1,-1 do
+		--print('LanguageModel.lua 227; t=' .. t)
 		local dout ={}
 		for k=1,#dstate[t] do table.insert(dout, dstate[t][k]) end
 		table.insert(dout,gradOutput[t])
@@ -235,7 +240,12 @@ function layer:updateGradInput(input, gradOutput) --gradOutput dim: (90,20,9568)
 			table.insert(dimgs,dxt)
 		else
 			local it = self.lookup_tables_inputs[t]
-			self.lookup_tables[t]:backward(it, dxt) -- backprop into lookup table
+			--print(it:size())
+			--print(it)
+			--print('it type: ' .. torch.type(it))
+			--print(dxt:size())
+			--print('dxt type: ' .. torch.type(dxt))
+			self.lookup_tables[t]:backward(it:cuda(), dxt) -- backprop into lookup table
 		end
 	end
 	return dimgs
@@ -258,11 +268,11 @@ function crit:updateOutput(input, labels)
 	local L,N,Mp1 = input:size(1), input:size(2), input:size(3)
 	local num_img_per_story = #labels --5
 	local seq_length=labels[1]:size(2) --16
-	print('input size')
-	print(input:size())
-	print('labels size')
-	print(labels[1]:size())
-	print('L=' .. L .. ';N=' .. N .. ';Mp1=' .. Mp1)
+	--print('input size')
+	--print(input:size())
+	--print('labels size')
+	--print(labels[1]:size())
+	--print('L=' .. L .. ';N=' .. N .. ';Mp1=' .. Mp1)
 	
 	local n=0
 	local loss=0
@@ -272,14 +282,14 @@ function crit:updateOutput(input, labels)
 			for t=2,seq_length+2 do
 				-- fetch the index of the next token in the sequence
 				local target_index
-				print('k=' .. k ..';t=' .. t)
+				--print('k=' .. k ..';t=' .. t)
 				if t-1>seq_length then
 					target_index = 0
-					print('x')
+					--print('x')
 				else
 					target_index = labels[k][{b,t-1}]
-					print('y')
-					print(target_index)
+					--print('y')
+					--print(target_index)
 				end
 				-- the first time we see null token as next index, actually want the model to predict the END token
 				if target_index == 0 and first_time then

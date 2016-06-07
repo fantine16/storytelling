@@ -82,7 +82,7 @@ function DataLoader:getBatch(opt)
 	for i=1,batch_size do
 		local onestory={}
 		local imgs_per_story=torch.ByteTensor(images_per_story, 3, 256, 256)
-		local labels_per_story=torch.ByteTensor(images_per_story, self.seq_length)
+		local labels_per_story=torch.LongTensor(images_per_story, self.seq_length)
 		local ri = self.iterators[split] -- get next index from iterator
 		local ri_next = ri + 1
 		if ri_next > max_index then ri_next = 1; wrapped = true end -- wrap back around
@@ -104,12 +104,12 @@ function DataLoader:getBatch(opt)
 	local imgs={} -- imgs的第t个元素是 story 的第t个图像， 每个元素是 images tensor，(batch_size*3*224*224)
 	local labels={} -- labels的第t个元素是story的第t个标注， 每个元素是 tensor，(batch_size*seq_length)
 	local batch_size=#story_batch
-	print('batch_size=' .. batch_size)
+	--print('batch_size=' .. batch_size)
 	for t=1,images_per_story do
-		local im = torch.FloatTensor(batch_size,3,256,256)
-		local la =torch.FloatTensor(batch_size,self.seq_length)
+		local im = torch.ByteTensor(batch_size,3,256,256)
+		local la =torch.LongTensor(batch_size,self.seq_length)
 		for k=1,batch_size do
-			print('t=' .. t .. ';k=' .. k)
+			--print('t=' .. t .. ';k=' .. k)
 			im[k]=story_batch[k].images[t]
 			la[k]=story_batch[k].labels[t]
 		end
