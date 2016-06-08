@@ -248,7 +248,8 @@ function layer:updateGradInput(input, gradOutput) --gradOutput dim: (90,10,9771)
 			self.lookup_tables[t]:backward(it:cuda(), dxt) -- backprop into lookup table
 		end
 	end
-	return dimgs
+	self.gradInput = dimgs
+	return self.gradInput
 
 
 end

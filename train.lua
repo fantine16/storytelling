@@ -28,20 +28,24 @@ cmd:option('-rnn_size',512,'size of the rnn in number of hidden nodes in each la
 cmd:option('-input_encoding_size',512,'the encoding size of each token in the vocabulary, and the image.')
 -- Optimization: General
 cmd:option('-max_iters',-1, 'max number of iterations to run for (-1 = run forever)')
-cmd:option('-batch_size',20,'what is the batch size in number of images per batch? (there will be x seq_per_img sentences)')
+cmd:option('-batch_size',15,'what is the batch size in number of images per batch? (there will be x seq_per_img sentences)')
 cmd:option('-images_per_story',5,'number of images for each story during training.')
-cmd:option('-finetune_cnn_after', -1, 'After what iteration do we start finetuning the CNN? (-1 = disable; never finetune, 0 = finetune from start)')
+cmd:option('-finetune_cnn_after', 5, 'After what iteration do we start finetuning the CNN? (-1 = disable; never finetune, 0 = finetune from start)')
 cmd:option('-grad_clip',0.1,'clip gradients at this value (note should be lower than usual 5 because we normalize grads by both batch and seq_length)')
 cmd:option('-drop_prob_lm', 0.5, 'strength of dropout in the Language Model RNN')
 -- Optimization: for the Language Model
 cmd:option('-optim','adam','what update to use? rmsprop|sgd|sgdmom|adagrad|adam')
 cmd:option('-learning_rate',4e-4,'learning rate')
-cmd:option('-learning_rate_decay_start', -1, 'at what iteration to start decaying learning rate? (-1 = dont)')
+cmd:option('-learning_rate_decay_start', 20, 'at what iteration to start decaying learning rate? (-1 = dont)')
 cmd:option('-learning_rate_decay_every', 50000, 'every how many iterations thereafter to drop LR by half?')
 cmd:option('-optim_alpha',0.8,'alpha for adagrad/rmsprop/momentum/adam')
 cmd:option('-optim_beta',0.999,'beta used for adam')
 cmd:option('-optim_epsilon',1e-8,'epsilon that goes into denominator for smoothing')
 -- Optimization: for the CNN
+cmd:option('-cnn_optim','adam','optimization to use for CNN')
+cmd:option('-cnn_optim_alpha',0.8,'alpha for momentum of CNN')
+cmd:option('-cnn_optim_beta',0.999,'alpha for momentum of CNN')
+cmd:option('-cnn_learning_rate',1e-5,'learning rate for the CNN')
 cmd:option('-cnn_weight_decay', 0, 'L2 weight decay just for the CNN')
 
 
@@ -203,6 +207,8 @@ local function lossFun()
 	local dlogprobs = protos.crit:backward(logprobs, data.labels)
 	-- backprop language model
 	local dimgs = protos.lm:backward(data, dlogprobs)
+	--print(torch.type(dimgs))
+	--print('dimgs num = ' .. #dimgs)
 	-- backprop the CNN, but only if we are finetuning
 	if opt.finetune_cnn_after >= 0 and iter >= opt.finetune_cnn_after then
 		for i=#dimgs,1 ,-1 do
