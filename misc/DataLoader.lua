@@ -90,11 +90,19 @@ function DataLoader:getBatch(opt)
 		ix = split_ix[ri]
 		assert(ix ~= nil, 'bug: split ' .. split .. ' was accessed out of bounds with ' .. ri)
 
+		--print('DataLoader 93: ri=' .. ri .. ';ri_next=' .. ri_next .. ';max_index=' .. max_index)
+		--[[
 		for j =1, images_per_story do
-			local k = images_per_story*ix + j
+			local k = images_per_story*(ix-1) + j
+			--print('DataLoader 95: split=' .. split .. ';i=' .. i .. ';j=' .. j .. ';k=' .. k .. ';ix= ' .. ix)
 			imgs_per_story[j]=self.h5_file:read('/images'):partial({k, k},{1,self.num_channels},{1,self.max_image_size},{1,self.max_image_size})
 			labels_per_story[j]=self.h5_file:read('/labels'):partial({k, k}, {1,self.seq_length})
-		end
+		end]]
+
+		imgs_per_story=self.h5_file:read('/images'):partial({images_per_story*(ix-1) + 1, images_per_story*ix},{1,self.num_channels},{1,self.max_image_size},{1,self.max_image_size})
+		labels_per_story=self.h5_file:read('/labels'):partial({images_per_story*(ix-1) + 1, images_per_story*ix}, {1,self.seq_length})
+
+
 
 		onestory.images=imgs_per_story
 		onestory.labels=labels_per_story:contiguous() --:transpose(1,2) :contiguous()-- note: make label sequences go down as columns

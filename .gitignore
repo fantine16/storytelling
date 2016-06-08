@@ -11,3 +11,4 @@
 *.tar.gz
 !doc/*.png
 *.caffemodel
+*.txt

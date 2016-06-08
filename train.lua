@@ -30,7 +30,7 @@ cmd:option('-input_encoding_size',512,'the encoding size of each token in the vo
 cmd:option('-max_iters',-1, 'max number of iterations to run for (-1 = run forever)')
 cmd:option('-batch_size',20,'what is the batch size in number of images per batch? (there will be x seq_per_img sentences)')
 cmd:option('-images_per_story',5,'number of images for each story during training.')
-cmd:option('-finetune_cnn_after', 20, 'After what iteration do we start finetuning the CNN? (-1 = disable; never finetune, 0 = finetune from start)')
+cmd:option('-finetune_cnn_after', -1, 'After what iteration do we start finetuning the CNN? (-1 = disable; never finetune, 0 = finetune from start)')
 cmd:option('-grad_clip',0.1,'clip gradients at this value (note should be lower than usual 5 because we normalize grads by both batch and seq_length)')
 cmd:option('-drop_prob_lm', 0.5, 'strength of dropout in the Language Model RNN')
 -- Optimization: for the Language Model
@@ -48,7 +48,7 @@ cmd:option('-cnn_weight_decay', 0, 'L2 weight decay just for the CNN')
 -- Evaluation/Checkpointing
 cmd:option('-val_images_use', 100, 'how many images to use when periodically evaluating the validation loss? (-1 = all)')
 cmd:option('-losses_log_every', 25, 'How often do we snapshot losses, for inclusion in the progress dump? (0 = disable)')
-cmd:option('-save_checkpoint_every', 2500, 'how often to save a model checkpoint?')
+cmd:option('-save_checkpoint_every', 100000000, 'how often to save a model checkpoint?')
 cmd:option('-checkpoint_path', '', 'folder to save checkpoints into (empty = this folder)')
 
 cmd:option('-id', '', 'an id identifying this run/job. used in cross-val and appended when writing progress files')
@@ -182,6 +182,7 @@ local function lossFun()
 	-----------------------------------------------------------------------------
 	-- get batch of data
 	local data = loader:getBatch{batch_size = opt.batch_size, split = 'train', images_per_story = opt.images_per_story}
+	
 	data.raw_images={}
 	for k,v in pairs(data.images) do
 		data.images[k]=net_utils.prepro(data.images[k], true, opt.gpuid>=0) --for循环，可能比较慢
@@ -218,7 +219,9 @@ local function lossFun()
 		-- note: we don't bother adding the l2 loss to the total loss, meh.
 		cnn_grad_params:clamp(-opt.grad_clip, opt.grad_clip)
 	end
-	return loss
+	
+	return loss	
+
 end
 
 --assert(false)
