@@ -12,3 +12,4 @@
 !doc/*.png
 *.caffemodel
 *.txt
+*.t7

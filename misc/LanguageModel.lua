@@ -78,6 +78,10 @@ function layer:createClones()
 	end
 end
 
+function layer:getModulesList()
+	return {self.core, self.lookup_table}
+end
+
 function layer:training()
 	if self.clones == nil then self:createClones() end -- create these lazily if needed
 	for k,v in pairs(self.clones) do v:training() end
