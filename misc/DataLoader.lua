@@ -10,6 +10,7 @@ function DataLoader:__init(opt)
 	self.info = utils.read_json(opt.json_file)
 	self.ix_to_word = self.info.ix_to_word
 	self.vocab_size = utils.count_keys(self.ix_to_word)
+	self.story = self.info.story
 	print('vocab size is ' .. self.vocab_size)
 
 	-- open the hdf5 file
@@ -75,6 +76,7 @@ function DataLoader:getBatch(opt)
 	assert(split_ix, 'split ' .. split .. ' not found.')
 	local max_index = #split_ix
 	local wrapped = false
+	local infos = {}
 
 	-- pick an index of the datapoint to load next
 	local story_batch={}
@@ -102,11 +104,10 @@ function DataLoader:getBatch(opt)
 		imgs_per_story=self.h5_file:read('/images'):partial({images_per_story*(ix-1) + 1, images_per_story*ix},{1,self.num_channels},{1,self.max_image_size},{1,self.max_image_size})
 		labels_per_story=self.h5_file:read('/labels'):partial({images_per_story*(ix-1) + 1, images_per_story*ix}, {1,self.seq_length})
 
-
-
 		onestory.images=imgs_per_story
 		onestory.labels=labels_per_story:contiguous() --:transpose(1,2) :contiguous()-- note: make label sequences go down as columns
 		table.insert(story_batch,onestory)
+		table.insert(infos, self.story[ix]['story_id'])
 	end
 
 	local imgs={} -- imgs的第t个元素是 story 的第t个图像， 每个元素是 images tensor，(batch_size*3*224*224)
@@ -127,6 +128,7 @@ function DataLoader:getBatch(opt)
 	local data={}
 	data.images=imgs
 	data.labels=labels
+	data.infos=infos
 	return data
 
 end

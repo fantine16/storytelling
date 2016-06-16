@@ -68,4 +68,43 @@ function utils.average_values(t)
   return vsum / n
 end
 
+
+function utils.tensor_equal(a,b)
+  local c=a-b
+  if torch.sum((c))==0 then
+    return true
+  else
+    return false
+  end
+end
+
+function utils.batch_equal(data)
+  batch_size=data.images[1]:size(1)
+  print('batch_size: ' .. batch_size)
+  for k=1, 5 do
+    print('img pos: ' .. k .. ':')
+    for j=1, batch_size do
+      local result=''
+      for t=1, batch_size do
+        result=result .. ' ' .. tostring(utils.tensor_equal(data.images[k][j],data.images[k][t]))
+        --result=result .. ' ' .. 1
+      end
+      print(result)
+    end
+  end
+end
+
+function utils.logprob_equal(logprob)
+  batch_size=logprob:size(2)
+  print('batch_size: ' .. batch_size)
+  for j=1,batch_size do
+    local result=''
+    for k=1,batch_size do
+      result=result .. ' ' .. tostring(utils.tensor_equal(logprob[{{},{j},{}}],logprob[{{},{k},{}}]))
+    end
+    print(result)
+  end
+end
+
+
 return utils

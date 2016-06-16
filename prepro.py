@@ -102,13 +102,19 @@ def encode_captions(story, params, wtoi):
 
 def main(params):
 
-    story=json.load(open(params['story_set'],'r')).values() #list
+    story_raw=json.load(open(params['story_set'],'r')) #dict
+    story = story_raw.values() #list
+    story_id = list(story_raw)
+    for i,t in enumerate(story):
+        story[i]['story_id'] = story_id[i]
+
     image_set=json.load(open(params['image_set'],'r')) #dict
     prepro_captions(story)
     vocab = build_vocab(story, params)
 
     itow = {i + 1: w for i, w in enumerate(vocab)}  # a 1-indexed vocab translation table
     wtoi = {w: i + 1 for i, w in enumerate(vocab)}  # inverse table
+    '''
     N = len(story)*5
     L ,label_start_ix= encode_captions(story, params, wtoi)
 
@@ -146,6 +152,7 @@ def main(params):
         print 'wrote ', params['output_h5']
     else:
         print('%s 文件已经存在，请删除后再运行程序！'% params['output_h5'])
+    '''
     out = {}
     out['ix_to_word'] = itow  # encode the (1-indexed) vocab
     out['story']=story

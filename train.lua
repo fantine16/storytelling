@@ -173,24 +173,24 @@ local function eval_split(split, evalopt)
 			data.raw_images[k]=data.images[k] -- raw_images存原始的(N,3,224,224)的图像tensor
 			data.images[k] = protos.cnn:forward(data.images[k])
 		end
- 		local logprobs = protos.lm:forward(data)
- 		local loss = protos.crit:forward(logprobs, data.labels)
- 		loss_sum = loss_sum + loss
- 		loss_evals = loss_evals + 1
+		local logprobs = protos.lm:forward(data)
+		local loss = protos.crit:forward(logprobs, data.labels)
+		loss_sum = loss_sum + loss
+		loss_evals = loss_evals + 1
 
- 		-- forward the model to also get generated samples for each image
- 		local seq = protos.lm:sample(data)
- 		local sents={}
- 		for k=1,#seq do
- 			local sents_t=net_utils.decode_sequence(vocab, seq[k])
- 			table.insert(sents,sents_t)
- 		end
+		-- forward the model to also get generated samples for each image
+		local seq = protos.lm:sample(data)
+		local sents={}
+		for k=1,#seq do
+			local sents_t=net_utils.decode_sequence(vocab, seq[k])
+			table.insert(sents,sents_t)
+		end
 
- 		if loss_evals % 10 == 0 then collectgarbage() end
- 		if n >= val_images_use then break end -- we've used enough images
- 	end
- 	return loss_sum/loss_evals, predictions, lang_stats
- end
+		if loss_evals % 10 == 0 then collectgarbage() end
+		if n >= val_images_use then break end -- we've used enough images
+	end
+	return loss_sum/loss_evals, predictions, lang_stats
+end
 
 
 -------------------------------------------------------------------------------
