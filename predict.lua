@@ -114,19 +114,20 @@ local function eval_split(split, evalopt)
 		for k=1,#seq do
 			local sents_t=net_utils.decode_sequence(vocab, seq[k])
 			table.insert(sents,sents_t)
-			print(seq[k])
+			--print(seq[k])
 			--print(torch.type(sents_t))
-			print(sents_t)
+			--print(sents_t)
 		end
 
 		for k=1, opt.batch_size do
 			local story_id=data.infos[k]
 			local story_txt=''
 			for j=1, opt.images_per_story do
-				for w in sents[k][j] do
-					story_txt=story_txt .. ' ' .. w
-				end
+				w = sents[j][k]
+				--print(w)
+				story_txt=story_txt .. ', ' .. w
 			end
+			print(story_txt)
 			local item={}
 			item.caption=story_txt
 			item.image_id=story_id

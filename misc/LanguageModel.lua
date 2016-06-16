@@ -17,6 +17,7 @@ function layer:__init(opt)
 	self.rnn_size = utils.getopt(opt, 'rnn_size')
 	self.num_layers = utils.getopt(opt, 'num_layers', 1)
 	self.images_per_story = utils.getopt(opt,'images_per_story',5)
+	self.images_use_per_story = utils.getopt(opt,'images_use_per_story',5)
 	local dropout = utils.getopt(opt, 'dropout', 0)
 	-- options for Language Model
 	self.seq_length = utils.getopt(opt, 'seq_length')
@@ -71,7 +72,7 @@ function layer:createClones()
 	print('constructing clones inside the LanguageModel')
 	self.clones = {self.core}
 	self.lookup_tables = {self.lookup_table}
-	local num_lstm=self.images_per_story*(self.seq_length+2)
+	local num_lstm=self.images_use_per_story*(self.seq_length+2)
 	for t=2,num_lstm do
 		self.clones[t] = self.core:clone('weight', 'bias', 'gradWeight', 'gradBias')
 		self.lookup_tables[t] = self.lookup_table:clone('weight', 'gradWeight')
@@ -108,7 +109,7 @@ function layer:sample(data, opt)
 
 	local seq = {}
 	local seqLogprobs= {}
-	for k=1, self.images_per_story do
+	for k=1, self.images_use_per_story do
 		local seq_t = torch.LongTensor(self.seq_length, batch_size):zero()
 		local seqLogprobs_t = torch.FloatTensor(self.seq_length, batch_size)
 		for t=1,self.seq_length+2 do
@@ -168,14 +169,14 @@ function layer:updateOutput(input)
 
 
 	if self.clones == nil then self:createClones() end	-- lazily create clones on first forward pass
-	self.output:resize((self.seq_length+2)*self.images_per_story, batch_size, self.vocab_size+1)
+	self.output:resize((self.seq_length+2)*self.images_use_per_story, batch_size, self.vocab_size+1)
 	self:_createInitState(batch_size)
 
 	self.state = {[0] = self.init_state}
 	self.inputs = {}
 	self.lookup_tables_inputs = {}
 
-	for k=1,self.images_per_story do
+	for k=1,self.images_use_per_story do
 		for t=1,self.seq_length+2 do
 			local xt
 			local ix_t=(k-1)*(self.seq_length+2)+t
@@ -210,6 +211,7 @@ function layer:updateOutput(input)
 			end
 
 			self.inputs[ix_t]={xt, unpack(self.state[ix_t-1])}
+			--print('k:' .. k .. ';t: ' .. t )
 			--print('ix_t : ' .. ix_t)
 			--print(self.inputs[ix_t][1]:size())
 			--print(self.inputs[ix_t][2]:size())
@@ -271,7 +273,7 @@ function crit:updateOutput(input, labels)
 	--TODO
 	self.gradInput:resizeAs(input):zero() -- reset to zeros
 	local L,N,Mp1 = input:size(1), input:size(2), input:size(3)
-	local num_img_per_story = #labels --5
+	local images_per_story = #labels
 	local seq_length=labels[1]:size(2) --16
 	--print('input size')
 	--print(input:size())
@@ -282,7 +284,7 @@ function crit:updateOutput(input, labels)
 	local n=0
 	local loss=0
 	for b=1,N do
-		for k=1,num_img_per_story do
+		for k=1,images_per_story do
 			local first_time=true
 			for t=2,seq_length+2 do
 				-- fetch the index of the next token in the sequence

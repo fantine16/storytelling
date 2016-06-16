@@ -71,7 +71,7 @@ function DataLoader:getBatch(opt)
 	local split = utils.getopt(opt, 'split') -- lets require that user passes this in, for safety
 	local batch_size = utils.getopt(opt, 'batch_size', 5) -- how many stories get returned at one time (to go through CNN)
 	local images_per_story = utils.getopt(opt, 'images_per_story', 5) -- number of images to return per story
-
+	local images_use_per_story = utils.getopt(opt, 'images_use_per_story', 5)
 	local split_ix = self.split_ix[split]
 	assert(split_ix, 'split ' .. split .. ' not found.')
 	local max_index = #split_ix
@@ -114,7 +114,7 @@ function DataLoader:getBatch(opt)
 	local labels={} -- labels的第t个元素是story的第t个标注， 每个元素是 tensor，(batch_size*seq_length)
 	local batch_size=#story_batch
 	--print('batch_size=' .. batch_size)
-	for t=1,images_per_story do
+	for t=1,images_use_per_story do
 		local im = torch.ByteTensor(batch_size,3,256,256)
 		local la =torch.LongTensor(batch_size,self.seq_length)
 		for k=1,batch_size do
