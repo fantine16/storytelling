@@ -19,7 +19,7 @@ cmd:text()
 cmd:text('Options')
 
 -- Input paths
-cmd:option('-model','model_id.t7','path to model to evaluate')
+cmd:option('-model','model_id1.t7','path to model to evaluate')
 -- Basic options
 cmd:option('-batch_size', 15, 'if > 0 then overrule, otherwise load from checkpoint.')
 cmd:option('-num_stories', 1000, 'how many images to use when periodically evaluating the loss? (-1 = all)')
@@ -57,7 +57,7 @@ local checkpoint = torch.load(opt.model)
 if string.len(opt.input_h5) == 0 then opt.input_h5 = checkpoint.opt.input_h5 end
 if string.len(opt.input_json) == 0 then opt.input_json = checkpoint.opt.input_json end
 if opt.batch_size == 0 then opt.batch_size = checkpoint.opt.batch_size end
-local fetch = {'rnn_size', 'input_encoding_size', 'drop_prob_lm', 'cnn_proto', 'cnn_model', 'images_per_story'}
+local fetch = {'rnn_size', 'input_encoding_size', 'drop_prob_lm', 'cnn_proto', 'cnn_model', 'images_per_story', 'images_use_per_story'}
 for k,v in pairs(fetch) do 
   opt[v] = checkpoint.opt[v] -- copy over options from model
 end
@@ -91,7 +91,7 @@ local function eval_split(split, evalopt)
 	local predict = {}
 
 	while true do 
-		local data = loader:getBatch{batch_size = opt.batch_size, split = split, images_per_story = opt.images_per_story}
+		local data = loader:getBatch{batch_size = opt.batch_size, split = split, images_per_story = opt.images_per_story, images_use_per_story = opt.images_use_per_story}
 		--utils.batch_equal(data) -- 判断data是否正确，两两判断是否相同
 		data.raw_images={}
 		n=n+data.images[1]:size(1)
@@ -122,7 +122,7 @@ local function eval_split(split, evalopt)
 		for k=1, opt.batch_size do
 			local story_id=data.infos[k]
 			local story_txt=''
-			for j=1, opt.images_per_story do
+			for j=1, opt.images_use_per_story do
 				w = sents[j][k]
 				--print(w)
 				story_txt=story_txt .. ', ' .. w
