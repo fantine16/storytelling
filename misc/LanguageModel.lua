@@ -190,8 +190,13 @@ function layer:updateOutput(input)
 				xt = self.lookup_tables[t]:forward(it) -- NxK sized input (token embedding vectors)
 			else
 				-- feed in the rest of the sequence...
+				--local it=labels[k][{{},{t-2}}]:clone()
+				--print('it size')
+				--print(it:size())
 				local it=labels[k][{{},{t-2}}]:clone():resize(labels[k]:size(1))
-
+				--print('it size')
+				--print(it:size())
+				--assert(false)
 				--[[
 					seq may contain zeros as null tokens, make sure we take them out to any arbitrary token
 					that won't make lookup_table crash with an error.

@@ -8,6 +8,8 @@ import h5py
 import numpy as np
 from scipy.misc import imread, imresize
 import cv2
+import time
+import Image
 
 def prepro_captions(story):
     print 'example processed tokens:'
@@ -114,11 +116,10 @@ def main(params):
 
     itow = {i + 1: w for i, w in enumerate(vocab)}  # a 1-indexed vocab translation table
     wtoi = {w: i + 1 for i, w in enumerate(vocab)}  # inverse table
-    '''
     N = len(story)*5
     L ,label_start_ix= encode_captions(story, params, wtoi)
 
-    if not os.path.exists(params['output_h5']):
+    if  not os.path.exists(params['output_h5']):
         f = h5py.File(params['output_h5'], "w")
         f.create_dataset("labels", dtype='uint32', data=L)
         f.create_dataset("label_start_ix", dtype='uint32', data=label_start_ix)
@@ -130,19 +131,31 @@ def main(params):
                 num = num + 1
                 imagename = image_set[id]['imagename'].encode('utf-8')
                 split = image_set[id]['split'].encode('utf-8')
+
                 if imagename.endswith('gif'):
                     I = imread('dataset/' + split + '/' + imagename)
+                    print('python IMAGE read from' + 'dataset/' + split + '/' + imagename)
                 else:
                     I = cv2.imread('dataset/' + split + '/' + imagename)  # 这一步很慢，因为图片都比较大
+                    I = cv2.cvtColor(I, cv2.COLOR_BGR2RGB)
+                    #print('opencv read from' + 'dataset/' + split + '/' + imagename)
+
                 try:
                     Ir = imresize(I, (256, 256))
                 except:
                     print 'failed resizing image %s ' % (split + '_used_valid/' + imagename)
                     raise
+
                 if len(Ir.shape) == 2:
                     Ir = Ir[:, :, np.newaxis]
                     Ir = np.concatenate((Ir, Ir, Ir), axis=2)
                     # and swap order of axes from (256,256,3) to (3,256,256)
+                '''
+                if i%5==0 :
+                    new_im = Image.fromarray(Ir)
+                    new_im.show()
+                    time.sleep(3)
+                    new_im.close()'''
                 Ir = Ir.transpose(2, 0, 1)
                 # write to h5
                 dset[i] = Ir
@@ -152,7 +165,6 @@ def main(params):
         print 'wrote ', params['output_h5']
     else:
         print('%s 文件已经存在，请删除后再运行程序！'% params['output_h5'])
-    '''
     out = {}
     out['ix_to_word'] = itow  # encode the (1-indexed) vocab
     out['story']=story

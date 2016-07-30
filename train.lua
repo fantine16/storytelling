@@ -19,8 +19,8 @@ cmd:text('Train an StoryTelling model')
 cmd:text()
 cmd:text('Options')
 -- Data input settings
-cmd:option('-input_h5','dataset/storytelling.h5','path to the h5file containing the preprocessed dataset')
-cmd:option('-input_json','dataset/storytelling.json','path to the json file containing additional info and vocab')
+cmd:option('-input_h5','dataset/storytelling1.h5','path to the h5file containing the preprocessed dataset')
+cmd:option('-input_json','dataset/storytelling1.json','path to the json file containing additional info and vocab')
 cmd:option('-cnn_proto','model/VGG_ILSVRC_16_layers_deploy.prototxt','path to CNN prototxt file in Caffe format. Note this MUST be a VGGNet-16 right now.')
 cmd:option('-cnn_model','model/VGG_ILSVRC_16_layers.caffemodel','path to CNN model file containing the weights, Caffe format. Note this MUST be a VGGNet-16 right now.')
 cmd:option('-start_from', '', 'path to a model checkpoint to initialize model weights from. Empty = don\'t')
@@ -29,7 +29,7 @@ cmd:option('-rnn_size',512,'size of the rnn in number of hidden nodes in each la
 cmd:option('-input_encoding_size',512,'the encoding size of each token in the vocabulary, and the image.')
 -- Optimization: General
 cmd:option('-max_iters',-1, 'max number of iterations to run for (-1 = run forever)')
-cmd:option('-batch_size',15,'what is the batch size in number of images per batch? (there will be x seq_per_img sentences)')
+cmd:option('-batch_size',10,'what is the batch size in number of images per batch? (there will be x seq_per_img sentences)')
 cmd:option('-images_per_story',5,'number of images for each story during training.')
 cmd:option('-images_use_per_story', 1)
 cmd:option('-finetune_cnn_after', -1, 'After what iteration do we start finetuning the CNN? (-1 = disable; never finetune, 0 = finetune from start)')
@@ -52,7 +52,7 @@ cmd:option('-cnn_weight_decay', 0, 'L2 weight decay just for the CNN')
 
 
 -- Evaluation/Checkpointing
-cmd:option('-val_images_use', 100, 'how many images to use when periodically evaluating the validation loss? (-1 = all)')
+cmd:option('-val_images_use', 10, 'how many images to use when periodically evaluating the validation loss? (-1 = all)')
 cmd:option('-losses_log_every', 25, 'How often do we snapshot losses, for inclusion in the progress dump? (0 = disable)')
 cmd:option('-save_checkpoint_every', 1000,'how often to save a model checkpoint?')
 cmd:option('-checkpoint_path', '', 'folder to save checkpoints into (empty = this folder)')
@@ -188,6 +188,17 @@ local function eval_split(split, evalopt)
 			table.insert(sents,sents_t)
 		end
 
+		for k=1, opt.batch_size do
+			local story_id=data.infos[k]
+			local story_txt=''
+			for j=1, opt.images_use_per_story do
+				w = sents[j][k]
+				--print(w)
+				story_txt=story_txt .. ', ' .. w
+			end
+			print(story_txt)			
+		end
+
 		if loss_evals % 10 == 0 then collectgarbage() end
 		if n >= val_images_use then break end -- we've used enough images
 	end
@@ -198,7 +209,7 @@ end
 -------------------------------------------------------------------------------
 -- Loss function
 -------------------------------------------------------------------------------
-local iter = 1
+local iter = 0
 local function lossFun()
 	protos.cnn:training()
 	protos.lm:training()
