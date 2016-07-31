@@ -160,10 +160,6 @@ function layer:updateOutput(input)
 	-- input每个元素是一个完整的story，元素的个数是batch大小
 	local imgs=input.images -- imgs的第t个元素是story的第t个图像，每个元素是images tensor，(batch_size*3*224*224)
 	local labels=input.labels -- labels的第t个元素是story的第t个标注， 每个元素是 tensor，(batch_size*seq_length)
-	--print('img size:')
-	--print(imgs[1]:size())
-	--print('labels size:')
-	--print(labels[1]:size())
 	local batch_size=imgs[1]:size()[1]
 	local seq_length=labels[1]:size()[2]
 
@@ -181,54 +177,27 @@ function layer:updateOutput(input)
 			local xt
 			local ix_t=(k-1)*(self.seq_length+2)+t
 			if t==1 then
-				-- feed in the images
 				xt=imgs[k]
 			elseif t==2 then
-				-- feed in the start tokens
 				local it = torch.LongTensor(batch_size):fill(self.vocab_size+1)
 				self.lookup_tables_inputs[ix_t] = it
 				xt = self.lookup_tables[t]:forward(it) -- NxK sized input (token embedding vectors)
 			else
-				-- feed in the rest of the sequence...
-				--local it=labels[k][{{},{t-2}}]:clone()
-				--print('it size')
-				--print(it:size())
 				local it=labels[k][{{},{t-2}}]:clone():resize(labels[k]:size(1))
-				--print('it size')
-				--print(it:size())
-				--assert(false)
-				--[[
-					seq may contain zeros as null tokens, make sure we take them out to any arbitrary token
-					that won't make lookup_table crash with an error.
-					token #1 will do, arbitrarily. This will be ignored anyway
-					because we will carefully set the loss to zero at these places
-					in the criterion, so computation based on this value will be noop for the optimization.
-				--]]
 				it[torch.eq(it,0)] = self.vocab_size + 1 --设置为终止词,end token
 				--print(it)
 				self.lookup_tables_inputs[ix_t] = it
 				xt = self.lookup_tables[ix_t]:forward(it)
-				--print('it size')
-				--print(it:size())
-				--print('xt size')
-				--print(xt:size())
 
 			end
 
 			self.inputs[ix_t]={xt, unpack(self.state[ix_t-1])}
-			--print(xt:size())
-			--print('k:' .. k .. ';t: ' .. t )
-			--print('ix_t : ' .. ix_t)
-			--print(self.inputs[ix_t][1]:size())
-			--print(self.inputs[ix_t][2]:size())
-			--print(self.inputs[ix_t][3]:size())
 			local out = self.clones[ix_t]:forward(self.inputs[ix_t])
 			self.output[ix_t]=out[self.num_state+1]
 			self.state[ix_t]={} -- the rest is state
 			for i=1,self.num_state do table.insert(self.state[ix_t], out[i]) end
 			
 		end
-		--assert(false)
 	end
 
 	return self.output --
