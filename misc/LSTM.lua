@@ -42,7 +42,7 @@ function LSTM.lstm(input_size, output_size, rnn_size, n, dropout)
 		-- decode the write inputs
 		local in_transform = nn.Tanh()(n4)
 		-- perform the LSTM update
-		local next_c					 = nn.CAddTable()({
+		local next_c= nn.CAddTable()({
 				nn.CMulTable()({forget_gate, prev_c}),
 				nn.CMulTable()({in_gate,		 in_transform})
 			})

@@ -216,6 +216,7 @@ function layer:updateOutput(input)
 			end
 
 			self.inputs[ix_t]={xt, unpack(self.state[ix_t-1])}
+			--print(xt:size())
 			--print('k:' .. k .. ';t: ' .. t )
 			--print('ix_t : ' .. ix_t)
 			--print(self.inputs[ix_t][1]:size())
@@ -227,6 +228,7 @@ function layer:updateOutput(input)
 			for i=1,self.num_state do table.insert(self.state[ix_t], out[i]) end
 			
 		end
+		--assert(false)
 	end
 
 	return self.output --
