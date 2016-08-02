@@ -102,6 +102,19 @@ takes a batch of images and runs the model forward in sampling mode
 Careful: make sure model is in :evaluate() mode if you're calling this.
 --]]
 function layer:sample(data, opt)
+
+	local debug = true
+	local function dprint(sth)
+		if debug then
+			print(sth)
+		end
+	end
+	local function dassert(flag,sth)
+		if debug then
+			assert(flag, sth)
+		end
+	end
+
 	local sample_max = utils.getopt(opt, 'sample_max', 1)
 	local beam_size = utils.getopt(opt, 'beam_size', 1)
 	local temperature = utils.getopt(opt, 'temperature', 1.0)
@@ -115,7 +128,7 @@ function layer:sample(data, opt)
 
 	local seq = torch.LongTensor(5*(seq_length+1),batch_size):zero()
 	local seqLogprobs= torch.FloatTensor(5*(seq_length+1),batch_size)
-	local logprobs
+	local logprobs --(batch_size, vocab_size+2), (4,9772)
 	
 	for t=1,5+1+5*(seq_length+1) do
 		if t<=5 then
@@ -149,6 +162,9 @@ function layer:sample(data, opt)
 		local inputs = {xt,unpack(state)}
 		local out = self.core:forward(inputs)
 		logprobs = out[self.num_state+1]
+		dprint('logprobs size:')
+		dprint(logprobs:size())
+		dassert(false)
 		state = {}
 		for i=1,self.num_state do table.insert(state, out[i]) end
 	end

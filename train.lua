@@ -163,7 +163,7 @@ local function eval_split(split, evalopt)
 	protos.cnn:evaluate()
 	protos.lm:evaluate()
 	loader:resetIterator(split)
-	local vocab = loader:getVocab()
+	local vocab = loader:getVocab()	
 
 	while true do 
 		-- fetch a batch of data
@@ -272,7 +272,7 @@ local loss_history = {}
 local val_lang_stats_history = {}
 local val_loss_history = {}
 local best_score
-local best_score
+local num_train = loader:getTrainNum()
 while true do	
 	-- eval loss/gradient
 	local loss = lossFun()
@@ -280,7 +280,7 @@ while true do
 	if iter % opt.losses_log_every == 0 then loss_history[iter] = loss end
 	--print(torch.type(iter))
 	--print(torch.type(loss))
-	print(string.format('iter %d: %f', iter, loss))
+	print(string.format('epoch %.2f , iter %d: %f', iter*opt.batch_size/num_train, iter, loss))
 
 	if (iter % opt.save_checkpoint_every == 0 or iter == opt.max_iters) then
 		-- evaluate the validation performance

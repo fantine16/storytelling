@@ -21,8 +21,8 @@ cmd:text('Options')
 -- Input paths
 cmd:option('-model','result_sii_2_log/model_id-1.t7','path to model to evaluate')
 -- Basic options
-cmd:option('-batch_size', 15, 'if > 0 then overrule, otherwise load from checkpoint.')
-cmd:option('-num_stories', 1000, 'how many images to use when periodically evaluating the loss? (-1 = all)')
+cmd:option('-batch_size', 4, 'if > 0 then overrule, otherwise load from checkpoint.')
+cmd:option('-num_stories', 4, 'how many images to use when periodically evaluating the loss? (-1 = all)')
 cmd:option('-input_h5','dataset/storytelling.h5','path to the h5file containing the preprocessed dataset. empty = fetch from model checkpoint.')
 cmd:option('-input_json','dataset/storytelling.json','path to the json file containing additional info and vocab. empty = fetch from model checkpoint.')
 cmd:option('-split', 'test', 'if running on MSCOCO images, which split to use: val|test|train')
@@ -76,7 +76,7 @@ protos.lm:createClones() -- reconstruct clones inside the language model
 protos.crit = nn.LanguageModelCriterion()
 if opt.gpuid >= 0 then for k,v in pairs(protos) do v:cuda() end end
 -------------------------------------------------------------------------------
--- Evaluation fun(ction)
+-- Evaluation function
 -------------------------------------------------------------------------------
 local function eval_split(split, evalopt)
 	local verbose = utils.getopt(evalopt, 'verbose', true)
@@ -88,7 +88,7 @@ local function eval_split(split, evalopt)
 	protos.cnn:evaluate()
 	protos.lm:evaluate()
 	loader:resetIterator(split) -- rewind iteator back to first datapoint in the split
-	local predict = {}
+	local predictions = {}
 
 	while true do 
 		local data = loader:getBatch{batch_size = opt.batch_size, split = split, images_per_story = opt.images_per_story, images_use_per_story = opt.images_use_per_story}
@@ -106,30 +106,17 @@ local function eval_split(split, evalopt)
 		local loss = protos.crit:forward(logprobs, data.labels)
 		loss_sum = loss_sum + loss
 		loss_evals = loss_evals + 1
-		-- forward the model to also get generated samples for each image
+
 		local seq = protos.lm:sample(data)
-		local sents={}
-		for k=1,#seq do
-			local sents_t=net_utils.decode_sequence(vocab, seq[k])
-			table.insert(sents,sents_t)
-			--print(seq[k])
-			--print(torch.type(sents_t))
-			--print(sents_t)
-		end
+		print(torch.type(seq))
+		print(seq:size())
+		print(seq)
+		local sents = net_utils.decode_sequence(vocab, seq)
 
 		for k=1, opt.batch_size do
-			local story_id=data.infos[k]
-			local story_txt=''
-			for j=1, opt.images_use_per_story do
-				w = sents[j][k]
-				--print(w)
-				story_txt=story_txt .. ', ' .. w
-			end
-			print(story_txt)
-			local item={}
-			item.caption=story_txt
-			item.image_id=story_id
-			table.insert(predict,item)
+			local entry = {story_id = data.infos[k], caption = sents[k]}
+			table.insert(predictions, entry)
+			print(string.format('story %s: %s', entry.story_id, entry.caption))
 		end
 
 		if loss_evals % 10 == 0 then collectgarbage() end
@@ -138,6 +125,6 @@ local function eval_split(split, evalopt)
 	return loss_sum/loss_evals
 end
 
-local loss = eval_split(opt.split, {num_images = opt.num_stories})
+local loss = eval_split(opt.split, {num_stories = opt.num_stories})
 print('loss: ', loss)
-utils.write_json('eval/results/predict.json', predict)
+utils.write_json('eval/results/predict.json', predictions)

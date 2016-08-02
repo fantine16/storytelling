@@ -36,6 +36,7 @@ function DataLoader:__init(opt)
 	-- separate out indexes for each of the provided splits
 	self.split_ix = {}
 	self.iterators = {}
+	self.num_story={}
 	for i,term in pairs(self.info.story) do
 		local split = term.split
 		if not self.split_ix[split] then
@@ -46,6 +47,7 @@ function DataLoader:__init(opt)
 		table.insert(self.split_ix[split], i)
 	end
 	for k,v in pairs(self.split_ix) do
+		self.num_story[k]=#v
 		print(string.format('assigned %d stories to split %s', #v, k))
 	end
 
@@ -65,6 +67,18 @@ end
 
 function DataLoader:getSeqLength()
 	return self.seq_length
+end
+
+function DataLoader:getTrainNum()
+	return self.num_story.train
+end
+
+function DataLoader:getValNum()
+	return self.num_story.val
+end
+
+function DataLoader:getTestNum()
+	return self.num_story.test
 end
 
 function DataLoader:getBatch(opt)
