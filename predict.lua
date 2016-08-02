@@ -19,7 +19,7 @@ cmd:text()
 cmd:text('Options')
 
 -- Input paths
-cmd:option('-model','model_id1.t7','path to model to evaluate')
+cmd:option('-model','result_sii_2_log/model_id-1.t7','path to model to evaluate')
 -- Basic options
 cmd:option('-batch_size', 15, 'if > 0 then overrule, otherwise load from checkpoint.')
 cmd:option('-num_stories', 1000, 'how many images to use when periodically evaluating the loss? (-1 = all)')
@@ -93,14 +93,12 @@ local function eval_split(split, evalopt)
 	while true do 
 		local data = loader:getBatch{batch_size = opt.batch_size, split = split, images_per_story = opt.images_per_story, images_use_per_story = opt.images_use_per_story}
 		--utils.batch_equal(data) -- 判断data是否正确，两两判断是否相同
-		data.raw_images={}
 		n=n+data.images[1]:size(1)
 		for k,v in pairs(data.images) do
 			data.images[k]=net_utils.prepro(data.images[k], true, opt.gpuid>=0) --for循环，可能比较慢
 		end	
 		-- forward the ConvNet on images (most work happens here)
 		for k,v in pairs(data.images) do
-			data.raw_images[k]=data.images[k] -- raw_images存原始的(N,3,224,224)的图像tensor
 			data.images[k] = protos.cnn:forward(data.images[k])
 		end
 		local logprobs = protos.lm:forward(data)

@@ -168,14 +168,12 @@ local function eval_split(split, evalopt)
 	while true do 
 		-- fetch a batch of data
 		local data = loader:getBatch{batch_size = opt.batch_size, split = split, images_per_story = opt.images_per_story, images_use_per_story = opt.images_use_per_story}
-		data.raw_images={}
 		n=n+data.images[1]:size(1)
 		for k,v in pairs(data.images) do
 			data.images[k]=net_utils.prepro(data.images[k], true, opt.gpuid>=0) --for循环，可能比较慢
 		end	
 		-- forward the ConvNet on images (most work happens here)
 		for k,v in pairs(data.images) do
-			data.raw_images[k]=data.images[k] -- raw_images存原始的(N,3,224,224)的图像tensor
 			data.images[k] = protos.cnn:forward(data.images[k])
 		end
 		local logprobs = protos.lm:forward(data)
@@ -225,7 +223,7 @@ local function lossFun()
 	end	
 	-- forward the ConvNet on images (most work happens here)
 	for k,v in pairs(data.images) do
-		data.raw_images[k]=data.images[k] -- raw_images存原始的(N,3,224,224)的图像tensor
+		data.raw_images[k]=data.images[k]:clone() -- raw_images存原始的(N,3,224,224)的图像tensor
 		data.images[k] = protos.cnn:forward(data.images[k])
 	end
 	-- forward the language model
