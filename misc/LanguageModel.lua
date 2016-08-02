@@ -22,8 +22,9 @@ function layer:__init(opt)
 	-- options for Language Model
 	self.seq_length = utils.getopt(opt, 'seq_length')
 	-- create the core lstm network. note +1 for both the START and END tokens
-	self.core = LSTM.lstm(self.input_encoding_size, self.vocab_size + 1, self.rnn_size, self.num_layers, dropout)
-	self.lookup_table = nn.LookupTable(self.vocab_size + 1, self.input_encoding_size)
+	--单词表添加"停止词"和"逗号"
+	self.core = LSTM.lstm(self.input_encoding_size, self.vocab_size + 2, self.rnn_size, self.num_layers, dropout)
+	self.lookup_table = nn.LookupTable(self.vocab_size + 2, self.input_encoding_size)
 	self:_createInitState(1) -- will be lazily resized later during forward passes,改行删掉后，会报错的。
 end
 
@@ -72,8 +73,9 @@ function layer:createClones()
 	print('constructing clones inside the LanguageModel')
 	self.clones = {self.core}
 	self.lookup_tables = {self.lookup_table}
-	local num_lstm=self.images_use_per_story*(self.seq_length+2)
+	local num_lstm=5+1+5*(self.seq_length+1)
 	for t=2,num_lstm do
+		--print(t)
 		self.clones[t] = self.core:clone('weight', 'bias', 'gradWeight', 'gradBias')
 		self.lookup_tables[t] = self.lookup_table:clone('weight', 'gradWeight')
 	end
@@ -100,56 +102,57 @@ takes a batch of images and runs the model forward in sampling mode
 Careful: make sure model is in :evaluate() mode if you're calling this.
 --]]
 function layer:sample(data, opt)
+	local sample_max = utils.getopt(opt, 'sample_max', 1)
+	local beam_size = utils.getopt(opt, 'beam_size', 1)
+	local temperature = utils.getopt(opt, 'temperature', 1.0)
+	local labels = data.labels
+	local seq_length=labels[1]:size(2)
+
 	local imgs=data.images -- imgs的第t个元素是story的第t个图像，每个元素是images tensor，(batch_size*3*224*224)
 	local batch_size = data.images[1]:size(1)
 	self:_createInitState(batch_size)
 	local state = self.init_state
 
-	local sample_max = 1
-
-	local seq = {}
-	local seqLogprobs= {}
-	for k=1, self.images_use_per_story do
-		local seq_t = torch.LongTensor(self.seq_length, batch_size):zero()
-		local seqLogprobs_t = torch.FloatTensor(self.seq_length, batch_size)
-		for t=1,self.seq_length+2 do
-			local xt
-			local it
-			local ix_t=(k-1)*(self.seq_length+2)+t
-
-			if t==1 then
-				xt=imgs[k]
-			elseif t==2 then
-				it = torch.LongTensor(batch_size):fill(self.vocab_size+1)
-				xt = self.lookup_tables[t]:forward(it)
+	local seq = torch.LongTensor(5*(seq_length+1),batch_size):zero()
+	local seqLogprobs= torch.FloatTensor(5*(seq_length+1),batch_size)
+	local logprobs
+	
+	for t=1,5+1+5*(seq_length+1) do
+		if t<=5 then
+			xt=imgs[t]
+		elseif t==6 then
+			it=torch.LongTensor(batch_size):fill(self.vocab_size+2) --终止词
+			xt = self.lookup_table:forward(it)
+		else
+			if sample_max==1 then
+				sampleLogprobs, it = torch.max(logprobs, 2)
+				it = it:view(-1):long()
 			else
-				if sample_max ==1 then
-					sampleLogprobs, it = torch.max(logprobs, 2) -- it:
-					it = it:view(-1):long() -- ?
+				local prob_prev
+				if temperature == 1.0 then
+					prob_prev = torch.exp(logprobs) -- fetch prev distribution: shape Nx(M+1)
 				else
-					--todo
-					;
+					prob_prev = torch.exp(torch.div(logprobs, temperature))
 				end
-				xt = self.lookup_table:forward(it)
+				it = torch.multinomial(prob_prev, 1)
+				sampleLogprobs = logprobs:gather(2, it)
+				it = it:view(-1):long()
 			end
-
-			if t>=3 then
-				--print('LanguageModel 132: it size')
-				--print(it:size())
-				--print('k = ' .. k .. 't = ' .. t)
-				seq_t[t-2]=it -- record the samples
-				seqLogprobs_t[t-2] = sampleLogprobs:view(-1):float() -- and also their log likelihoods
-			end
-
-			local inputs = {xt,unpack(state)}
-			local out = self.core:forward(inputs)
-			logprobs = out[self.num_state+1] -- last element is the output vector
-			state = {}
-			for i=1,self.num_state do table.insert(state, out[i]) end
 		end
-		table.insert(seq,seq_t)
-		table.insert(seqLogprobs,seqLogprobs_t)
+
+
+		if t>=7 then
+			seq[t-6]=it
+			seqLogprobs[t-6] = sampleLogprobs:view(-1):float()
+		end
+
+		local inputs = {xt,unpack(state)}
+		local out = self.core:forward(inputs)
+		logprobs = out[self.num_state+1]
+		state = {}
+		for i=1,self.num_state do table.insert(state, out[i]) end
 	end
+
 	return seq, seqLogprobs
 end
 
@@ -157,47 +160,77 @@ end
 
 
 function layer:updateOutput(input)
+	local debug = false
+	local function dprint(sth)
+		if debug then
+			print(sth)
+		end
+	end
+	dprint('layer:updateOutput :')
 	-- input每个元素是一个完整的story，元素的个数是batch大小
 	local imgs=input.images -- imgs的第t个元素是story的第t个图像，每个元素是images tensor，(batch_size*3*224*224)
 	local labels=input.labels -- labels的第t个元素是story的第t个标注， 每个元素是 tensor，(batch_size*seq_length)
 	local batch_size=imgs[1]:size()[1]
 	local seq_length=labels[1]:size()[2]
-
-
+	local pro_label = torch.LongTensor(batch_size, 5*(seq_length+1)):fill(0)
+	dprint(labels)
+	for i=1,#labels do
+		dprint(labels[i])
+	end
+	for i=1, batch_size do
+		local t=torch.LongTensor{self.vocab_size+2} --停止词,但是并没有加入到pro_label中
+		for j=1, self.images_use_per_story do
+			local temp=labels[j][i]
+			dprint(temp)
+			temp=temp[torch.ne(temp,0)]
+			dprint(temp)
+			t=torch.cat(t,temp)
+			t=torch.cat(t,torch.LongTensor{self.vocab_size+1}) --逗号
+			--print(t)
+		end
+		dprint(t)
+		pro_label[i][{{1,t:size(1)-1}}]:copy(t[{{2,t:size(1)}}])--pro_label中,每句话的第一个词不是停止词
+		pro_label[torch.eq(pro_label,0)]=self.vocab_size+2--停止词
+	end
+	pro_label=pro_label:t()
+	dprint(pro_label)
+	--assert(false)
 	if self.clones == nil then self:createClones() end	-- lazily create clones on first forward pass
-	self.output:resize((self.seq_length+2)*self.images_use_per_story, batch_size, self.vocab_size+1)
+	self.output:resize(5+1+5*(self.seq_length+1), batch_size, self.vocab_size+2)
 	self:_createInitState(batch_size)
 
 	self.state = {[0] = self.init_state}
 	self.inputs = {}
 	self.lookup_tables_inputs = {}
-
-	for k=1,self.images_use_per_story do
-		for t=1,self.seq_length+2 do
-			local xt
-			local ix_t=(k-1)*(self.seq_length+2)+t
-			if t==1 then
-				xt=imgs[k]
-			elseif t==2 then
-				local it = torch.LongTensor(batch_size):fill(self.vocab_size+1)
-				self.lookup_tables_inputs[ix_t] = it
-				xt = self.lookup_tables[t]:forward(it) -- NxK sized input (token embedding vectors)
-			else
-				local it=labels[k][{{},{t-2}}]:clone():resize(labels[k]:size(1))
-				it[torch.eq(it,0)] = self.vocab_size + 1 --设置为终止词,end token
-				--print(it)
-				self.lookup_tables_inputs[ix_t] = it
-				xt = self.lookup_tables[ix_t]:forward(it)
-
-			end
-
-			self.inputs[ix_t]={xt, unpack(self.state[ix_t-1])}
-			local out = self.clones[ix_t]:forward(self.inputs[ix_t])
-			self.output[ix_t]=out[self.num_state+1]
-			self.state[ix_t]={} -- the rest is state
-			for i=1,self.num_state do table.insert(self.state[ix_t], out[i]) end
-			
+	
+	for t=1, 5+1+5*(self.seq_length+1) do
+		local xt
+		if t<=5 then
+			xt = imgs[t]
+		elseif t==6 then
+			local it = torch.LongTensor(batch_size):fill(self.vocab_size+2) --设置为终止词,end token
+			self.lookup_tables_inputs[t] = it
+			xt = self.lookup_tables[t]:forward(it)
+		else
+			local it =  pro_label[t-6]:clone()
+			it[torch.eq(it,0)] = self.vocab_size + 2 --设置为终止词,end token
+			self.lookup_tables_inputs[t] = it
+			xt = self.lookup_tables[t]:forward(it)
 		end
+		-- construct the inputs
+		self.inputs[t] = {xt,unpack(self.state[t-1])}
+		--print(t)
+		--print(xt:size())
+		--print(self.state[t-1][1]:size())
+		--print(self.state[t-1][2]:size())
+		--assert(false)
+		-- forward the network
+		local out = self.clones[t]:forward(self.inputs[t])
+		-- process the outputs
+		self.output[t] = out[self.num_state+1] 
+		self.state[t] = {}
+		for i=1,self.num_state do table.insert(self.state[t], out[i]) end
+
 	end
 
 	return self.output --
@@ -218,7 +251,7 @@ function layer:updateGradInput(input, gradOutput) --gradOutput dim: (90,10,9771)
 		local dxt = dinputs[1] -- first element is the input vector
 		dstate[t-1] = {}
 		for k=2,self.num_state+1 do table.insert(dstate[t-1], dinputs[k]) end
-		if t%(self.seq_length+2)==1 then -- 图片
+		if t<=5 then -- 图片
 			table.insert(dimgs,dxt)
 		else
 			local it = self.lookup_tables_inputs[t]
@@ -246,56 +279,83 @@ function crit:__init()
 end
 
 function crit:updateOutput(input, labels)
+	local debug = false
+	local function dprint(sth)
+		if debug then
+			print(sth)
+		end
+	end
+	local batch_size=input:size(2)
+	local seq_length=labels[1]:size(2)
+	local vocab_size=input:size(3)-2
+	local images_use_per_story = #labels
+	dprint("input size:")
+	dprint(input:size())
+	dprint('batch_size = ' .. batch_size)
+	dprint('seq_length = ' .. seq_length)
+	local pro_label = torch.LongTensor(batch_size, 5*(seq_length+1)+1):fill(0)
+	for i=1, batch_size do
+		local t=torch.LongTensor{vocab_size+2} --停止词
+		for j=1, images_use_per_story do
+			local temp=labels[j][i]
+			temp=temp[torch.ne(temp,0)]
+			t=torch.cat(t,temp)
+			t=torch.cat(t,torch.LongTensor{vocab_size+1}) --逗号
+			--print(t)
+		end
+		--print(t)
+		pro_label[i][{{1,t:size(1)-1}}]:copy(t[{{2,t:size(1)}}])
+		pro_label[torch.eq(pro_label,0)]=vocab_size+2
+	end
+	--assert(false)
+	pro_label=pro_label:t()
+	dprint("pro_label:size() ")
+	dprint(pro_label:size())
+	dprint(pro_label)
+
 	--TODO
 	self.gradInput:resizeAs(input):zero() -- reset to zeros
 	local L,N,Mp1 = input:size(1), input:size(2), input:size(3)
+	--local D=pro_label:size(1)
+	Mp1=Mp1-1
 	local images_per_story = #labels
-	local seq_length=labels[1]:size(2) --16
-	--print('input size')
-	--print(input:size())
-	--print('labels size')
-	--print(labels[1]:size())
-	--print('L=' .. L .. ';N=' .. N .. ';Mp1=' .. Mp1)
-	
+	local seq_length=labels[1]:size(2)	
 	local n=0
 	local loss=0
+	dprint("loss type: ")
+	dprint(torch.type(loss))
 	for b=1,N do
-		for k=1,images_per_story do
-			local first_time=true
-			for t=2,seq_length+2 do
-				-- fetch the index of the next token in the sequence
-				local target_index
-				--print('k=' .. k ..';t=' .. t)
-				if t-1>seq_length then
-					target_index = 0
-					--print('x')
-				else
-					target_index = labels[k][{b,t-1}]
-					--print('y')
-					--print(target_index)
-				end
-				-- the first time we see null token as next index, actually want the model to predict the END token
-				if target_index == 0 and first_time then
-					target_index=Mp1
-					first_time=false
-				end
-
-				-- if there is a non-null next token, enforce loss!
-				if target_index ~= 0 then
-					-- accumulate loss
-					--print((k-1)*(seq_length+2)+t)
-					--print(b)
-					--print(target_index)
-					loss=loss - input[{(k-1)*(seq_length+2)+t,b,target_index}]
-					self.gradInput[{(k-1)*(seq_length+2)+t,b,target_index}] = -1
-					n = n + 1
-				end
+		local first_time=true
+		for t=6,L do	
+			local target_index		
+			if t==L then
+				target_index=0
+			else
+				target_index=pro_label[{t-4,b}]
 			end
+			if target_index==0 and first_time then
+				target_index=Mp1
+				first_time=false
+			end
+
+			if target_index~=0 then
+				loss = loss-input[{t,b,target_index}]				
+				dprint('t=' .. t)
+				dprint('b=' .. b)
+				dprint('target_index=' .. target_index)
+				dprint(torch.type(input[{t,b,target_index}]))
+				self.gradInput[{t,b,target_index}] = -1
+				n=n+1
+			end			
 		end
 	end
 
 	self.output = loss/n -- normalize by number of predictions that were made
 	self.gradInput:div(n)
+	dprint(torch.type(self.output))
+	dprint(torch.type(loss/n))
+	dprint(torch.type(loss))
+	dprint(torch.type(n))
 	return self.output
 end
 

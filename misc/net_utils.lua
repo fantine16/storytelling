@@ -170,12 +170,20 @@ each column is a sequence. ix_to_word gives the mapping to strings, as a table
 --]]
 function net_utils.decode_sequence(ix_to_word, seq)
   local D,N = seq:size(1), seq:size(2)
+  local vocab_size=utils.count_keys(ix_to_word)
   local out = {}
   for i=1,N do
     local txt = ''
     for j=1,D do
       local ix = seq[{j,i}]
-      local word = ix_to_word[tostring(ix)]
+      local word
+      if ix==vocab_size+1 then
+        word =', ' 
+      elseif ix==vocab_size+2 then
+        word =nil
+      else
+        word = ix_to_word[tostring(ix)]
+      end
       if not word then break end -- END token, likely. Or null token
       if j >= 2 then txt = txt .. ' ' end
       txt = txt .. word

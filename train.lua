@@ -25,8 +25,8 @@ cmd:option('-cnn_proto','model/VGG_ILSVRC_16_layers_deploy.prototxt','path to CN
 cmd:option('-cnn_model','model/VGG_ILSVRC_16_layers.caffemodel','path to CNN model file containing the weights, Caffe format. Note this MUST be a VGGNet-16 right now.')
 cmd:option('-start_from', '', 'path to a model checkpoint to initialize model weights from. Empty = don\'t')
 -- Model settings
-cmd:option('-rnn_size',1024,'size of the rnn in number of hidden nodes in each layer')
-cmd:option('-input_encoding_size',1024,'the encoding size of each token in the vocabulary, and the image.')
+cmd:option('-rnn_size',768,'size of the rnn in number of hidden nodes in each layer')
+cmd:option('-input_encoding_size',768,'the encoding size of each token in the vocabulary, and the image.')
 -- Optimization: General
 cmd:option('-max_iters',-1, 'max number of iterations to run for (-1 = run forever)')
 cmd:option('-batch_size',32,'what is the batch size in number of images per batch? (there will be x seq_per_img sentences)')
@@ -39,8 +39,8 @@ cmd:option('-drop_prob_lm', 0.5, 'strength of dropout in the Language Model RNN'
 cmd:option('-optim','adam','what update to use? rmsprop|sgd|sgdmom|adagrad|adam')
 cmd:option('-num_layers',1,'number of hidden layers of rnn')
 cmd:option('-learning_rate',4e-4,'learning rate')
-cmd:option('-learning_rate_decay_start', -1, 'at what iteration to start decaying learning rate? (-1 = dont)')
-cmd:option('-learning_rate_decay_every', 50000, 'every how many iterations thereafter to drop LR by half?')
+cmd:option('-learning_rate_decay_start', 20000, 'at what iteration to start decaying learning rate? (-1 = dont)')
+cmd:option('-learning_rate_decay_every', 30000, 'every how many iterations thereafter to drop LR by half?')
 cmd:option('-optim_alpha',0.8,'alpha for adagrad/rmsprop/momentum/adam')
 cmd:option('-optim_beta',0.999,'beta used for adam')
 cmd:option('-optim_epsilon',1e-8,'epsilon that goes into denominator for smoothing')
@@ -53,8 +53,8 @@ cmd:option('-cnn_weight_decay', 0, 'L2 weight decay just for the CNN')
 
 
 -- Evaluation/Checkpointing
-cmd:option('-val_images_use', 10, 'how many images to use when periodically evaluating the validation loss? (-1 = all)')
-cmd:option('-losses_log_every', 25, 'How often do we snapshot losses, for inclusion in the progress dump? (0 = disable)')
+cmd:option('-val_images_use', 64, 'how many images to use when periodically evaluating the validation loss? (-1 = all)')
+cmd:option('-losses_log_every', 1000, 'How often do we snapshot losses, for inclusion in the progress dump? (0 = disable)')
 cmd:option('-save_checkpoint_every', 1000,'how often to save a model checkpoint?')
 cmd:option('-checkpoint_path', '', 'folder to save checkpoints into (empty = this folder)')
 
@@ -63,6 +63,8 @@ cmd:option('-id', '', 'an id identifying this run/job. used in cross-val and app
 cmd:option('-gpuid', 0, 'which gpu to use. -1 = use CPU')
 cmd:option('-backend', 'cudnn', 'nn|cudnn')
 cmd:option('-seed', 123, 'random number generator seed to use')
+cmd:option('-debug', true)
+
 cmd:text()
 
 opt = cmd:parse(arg)
@@ -156,7 +158,7 @@ local function eval_split(split, evalopt)
 	local n = 0 --处理的图像的数量
 	local loss_sum = 0
 	local loss_evals = 0
-	local predictions --TODO
+	local predictions={} --TODO
 	local lang_stats --TODO
 	protos.cnn:evaluate()
 	protos.lm:evaluate()
@@ -183,21 +185,14 @@ local function eval_split(split, evalopt)
 
 		-- forward the model to also get generated samples for each image
 		local seq = protos.lm:sample(data)
-		local sents={}
-		for k=1,#seq do
-			local sents_t=net_utils.decode_sequence(vocab, seq[k])
-			table.insert(sents,sents_t)
-		end
+		print(torch.type(seq))
+		print(seq:size())
+		local sents = net_utils.decode_sequence(vocab, seq)
 
 		for k=1, opt.batch_size do
-			local story_id=data.infos[k]
-			local story_txt=''
-			for j=1, opt.images_use_per_story do
-				w = sents[j][k]
-				--print(w)
-				story_txt=story_txt .. ', ' .. w
-			end
-			print(story_txt)			
+			local entry = {story_id = data.infos[k], caption = sents[k]}
+			table.insert(predictions, entry)
+			print(string.format('story %s: %s', entry.story_id, entry.caption))
 		end
 
 		if loss_evals % 10 == 0 then collectgarbage() end
@@ -210,7 +205,7 @@ end
 -------------------------------------------------------------------------------
 -- Loss function
 -------------------------------------------------------------------------------
-local iter = 0
+local iter = 1
 local function lossFun()
 	protos.cnn:training()
 	protos.lm:training()
@@ -285,6 +280,8 @@ while true do
 	local loss = lossFun()
 	
 	if iter % opt.losses_log_every == 0 then loss_history[iter] = loss end
+	--print(torch.type(iter))
+	--print(torch.type(loss))
 	print(string.format('iter %d: %f', iter, loss))
 
 	if (iter % opt.save_checkpoint_every == 0 or iter == opt.max_iters) then
