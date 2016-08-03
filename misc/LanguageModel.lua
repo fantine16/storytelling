@@ -2,6 +2,8 @@ require 'nn'
 local utils = require 'misc.utils'
 local net_utils = require 'misc.net_utils'
 local LSTM = require 'misc.LSTM'
+local GRU = require 'misc.GRU'
+local RNN = require 'misc.RNN'
 
 
 -------------------------------------------------------------------------------
@@ -21,18 +23,37 @@ function layer:__init(opt)
 	local dropout = utils.getopt(opt, 'dropout', 0)
 	-- options for Language Model
 	self.seq_length = utils.getopt(opt, 'seq_length')
+	self.rnn_type=opt.rnn_type
 	-- create the core lstm network. note +1 for both the START and END tokens
 	--单词表添加"停止词"和"逗号"
-	self.core = LSTM.lstm(self.input_encoding_size, self.vocab_size + 2, self.rnn_size, self.num_layers, dropout)
+
+	if self.rnn_type == 'lstm' then
+		self.core = LSTM.lstm(self.input_encoding_size, self.vocab_size + 2, self.rnn_size, self.num_layers, dropout)
+	elseif self.rnn_type == 'gru' then
+		self.core = GRU.gru(self.input_encoding_size, self.vocab_size + 2, self.rnn_size, self.num_layers, dropout)
+	elseif self.rnn_type == 'rnn' then 
+		self.core = RNN.rnn(self.input_encoding_size, self.vocab_size + 2, self.rnn_size, self.num_layers, dropout)
+	end
+
 	self.lookup_table = nn.LookupTable(self.vocab_size + 2, self.input_encoding_size)
 	self:_createInitState(1) -- will be lazily resized later during forward passes,改行删掉后，会报错的。
 end
 
 function layer:_createInitState(batch_size)
 	assert(batch_size ~= nil, 'batch size must be provided')
-	-- construct the initial state for the LSTM
-	if not self.init_state then self.init_state = {} end -- lazy init
-	for h=1,self.num_layers*2 do
+	-- construct the initial state 
+	if not self.init_state then self.init_state = {} end
+	--self.init_state = {} 
+
+
+	local num_layers 
+	if self.rnn_type=='lstm' then
+		num_layers=self.num_layers*2
+	else
+		num_layers=self.num_layers
+	end
+
+	for h=1,num_layers do
 		-- note, the init state Must be zeros because we are using init_state to init grads in backward call too
 		if self.init_state[h] then
 			if self.init_state[h]:size(1) ~= batch_size then
@@ -43,6 +64,9 @@ function layer:_createInitState(batch_size)
 		end
 	end
 	self.num_state = #self.init_state
+
+
+
 	--print(torch.type(self.init_state[1]))
 	--print(torch.type(self.init_state[2]))
 	--print('!!!')
@@ -103,7 +127,7 @@ Careful: make sure model is in :evaluate() mode if you're calling this.
 --]]
 function layer:sample(data, opt)
 
-	local debug = true
+	local debug = false
 	local function dprint(sth)
 		if debug then
 			print(sth)
@@ -241,6 +265,7 @@ function layer:updateOutput(input)
 		--print(self.state[t-1][2]:size())
 		--assert(false)
 		-- forward the network
+		--print(#self.inputs[t])
 		local out = self.clones[t]:forward(self.inputs[t])
 		-- process the outputs
 		self.output[t] = out[self.num_state+1] 

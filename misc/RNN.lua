@@ -1,6 +1,6 @@
 local RNN = {}
 
-function RNN.rnn(input_size, rnn_size, n, dropout)
+function RNN.rnn(input_size, output_size, rnn_size, n, dropout)
   
   -- there are n+1 inputs (hiddens on each layer and x)
   local inputs = {}
@@ -16,7 +16,7 @@ function RNN.rnn(input_size, rnn_size, n, dropout)
     
     local prev_h = inputs[L+1]
     if L == 1 then 
-      x = OneHot(input_size)(inputs[1])
+      x = inputs[1]
       input_size_L = input_size
     else 
       x = outputs[(L-1)] 
@@ -34,7 +34,7 @@ function RNN.rnn(input_size, rnn_size, n, dropout)
 -- set up the decoder
   local top_h = outputs[#outputs]
   if dropout > 0 then top_h = nn.Dropout(dropout)(top_h) end
-  local proj = nn.Linear(rnn_size, input_size)(top_h)
+  local proj = nn.Linear(rnn_size, output_size)(top_h)
   local logsoft = nn.LogSoftMax()(proj)
   table.insert(outputs, logsoft)
 

@@ -1,8 +1,7 @@
 local cjson = require 'cjson'
 local utils = {}
 
-function dprint()
-end
+
 
 -- Assume required if default_value is nil
 function utils.getopt(opt, key, default_value)
@@ -109,5 +108,15 @@ function utils.logprob_equal(logprob)
   end
 end
 
+function utils.clone_list(tensor_list, zero_too)
+  -- utility function. todo: move away to some utils file?
+  -- takes a list of tensors and returns a list of cloned tensors
+  local out = {}
+  for k,v in pairs(tensor_list) do
+    out[k] = v:clone()
+      if zero_too then out[k]:zero() end
+  end
+  return out
+end
 
 return utils
