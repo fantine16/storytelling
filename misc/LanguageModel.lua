@@ -345,7 +345,7 @@ function crit:updateOutput(input, labels)
 			--print(t)
 		end
 		--print(t)
-		pro_label[i][{{1,t:size(1)-1}}]:copy(t[{{2,t:size(1)}}])
+		pro_label[i][{{1,t:size(1)-1}}]:copy(t[{{2,t:size(1)}}])--pro_label中,每句话的第一个词不是停止词
 		pro_label[torch.eq(pro_label,0)]=vocab_size+2
 	end
 	--assert(false)
@@ -372,7 +372,7 @@ function crit:updateOutput(input, labels)
 			if t==L then
 				target_index=0
 			else
-				target_index=pro_label[{t-4,b}]
+				target_index=pro_label[{t-5,b}]
 			end
 			if target_index==0 and first_time then
 				target_index=Mp1
