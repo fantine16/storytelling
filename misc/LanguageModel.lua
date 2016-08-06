@@ -28,14 +28,14 @@ function layer:__init(opt)
 	--单词表添加"停止词"和"逗号"
 
 	if self.rnn_type == 'lstm' then
-		self.core = LSTM.lstm(self.input_encoding_size, self.vocab_size + 2, self.rnn_size, self.num_layers, dropout)
+		self.core = LSTM.lstm(self.input_encoding_size, self.vocab_size + 1, self.rnn_size, self.num_layers, dropout)
 	elseif self.rnn_type == 'gru' then
-		self.core = GRU.gru(self.input_encoding_size, self.vocab_size + 2, self.rnn_size, self.num_layers, dropout)
+		self.core = GRU.gru(self.input_encoding_size, self.vocab_size + 1, self.rnn_size, self.num_layers, dropout)
 	elseif self.rnn_type == 'rnn' then 
-		self.core = RNN.rnn(self.input_encoding_size, self.vocab_size + 2, self.rnn_size, self.num_layers, dropout)
+		self.core = RNN.rnn(self.input_encoding_size, self.vocab_size + 1, self.rnn_size, self.num_layers, dropout)
 	end
 
-	self.lookup_table = nn.LookupTable(self.vocab_size + 2, self.input_encoding_size)
+	self.lookup_table = nn.LookupTable(self.vocab_size + 1, self.input_encoding_size)
 	self:_createInitState(1) -- will be lazily resized later during forward passes,改行删掉后，会报错的。
 end
 
@@ -65,11 +65,6 @@ function layer:_createInitState(batch_size)
 	end
 	self.num_state = #self.init_state
 
-
-
-	--print(torch.type(self.init_state[1]))
-	--print(torch.type(self.init_state[2]))
-	--print('!!!')
 end
 
 function layer:parameters()
@@ -97,7 +92,7 @@ function layer:createClones()
 	print('constructing clones inside the LanguageModel')
 	self.clones = {self.core}
 	self.lookup_tables = {self.lookup_table}
-	local num_lstm=5+1+5*(self.seq_length+1)
+	local num_lstm=5+1+5*self.seq_length
 	for t=2,num_lstm do
 		--print(t)
 		self.clones[t] = self.core:clone('weight', 'bias', 'gradWeight', 'gradBias')
@@ -150,15 +145,15 @@ function layer:sample(data, opt)
 	self:_createInitState(batch_size)
 	local state = self.init_state
 
-	local seq = torch.LongTensor(5*(seq_length+1),batch_size):zero()
-	local seqLogprobs= torch.FloatTensor(5*(seq_length+1),batch_size)
+	local seq = torch.LongTensor(5*seq_length,batch_size):zero()
+	local seqLogprobs= torch.FloatTensor(5*seq_lengt,batch_size)
 	local logprobs --(batch_size, vocab_size+2), (4,9772)
 	
-	for t=1,5+1+5*(seq_length+1) do
+	for t=1,5+1+5*seq_length do
 		if t<=5 then
 			xt=imgs[t]
 		elseif t==6 then
-			it=torch.LongTensor(batch_size):fill(self.vocab_size+2) --终止词
+			it=torch.LongTensor(batch_size):fill(self.vocab_size+1) --终止词
 			xt = self.lookup_table:forward(it)
 		else
 			if sample_max==1 then
@@ -212,48 +207,47 @@ function layer:updateOutput(input)
 	local labels=input.labels -- labels的第t个元素是story的第t个标注， 每个元素是 tensor，(batch_size*seq_length)
 	local batch_size=imgs[1]:size()[1]
 	local seq_length=labels[1]:size()[2]
-	local pro_label = torch.LongTensor(batch_size, 5*(seq_length+1)):fill(0)
+	local pro_label = torch.LongTensor(batch_size, 5*seq_length):fill(0)
 	dprint(labels)
 	for i=1,#labels do
 		dprint(labels[i])
 	end
 	for i=1, batch_size do
-		local t=torch.LongTensor{self.vocab_size+2} --停止词,但是并没有加入到pro_label中
+		local t=torch.LongTensor{self.vocab_size+1} --停止词,但是并没有加入到pro_label中
 		for j=1, self.images_use_per_story do
 			local temp=labels[j][i]
 			dprint(temp)
 			temp=temp[torch.ne(temp,0)]
 			dprint(temp)
 			t=torch.cat(t,temp)
-			t=torch.cat(t,torch.LongTensor{self.vocab_size+1}) --逗号
 			--print(t)
 		end
 		dprint(t)
 		pro_label[i][{{1,t:size(1)-1}}]:copy(t[{{2,t:size(1)}}])--pro_label中,每句话的第一个词不是停止词
-		pro_label[torch.eq(pro_label,0)]=self.vocab_size+2--停止词
+		pro_label[torch.eq(pro_label,0)]=self.vocab_size+1--停止词
 	end
 	pro_label=pro_label:t()
 	dprint(pro_label)
 	--assert(false)
 	if self.clones == nil then self:createClones() end	-- lazily create clones on first forward pass
-	self.output:resize(5+1+5*(self.seq_length+1), batch_size, self.vocab_size+2)
+	self.output:resize(5+1+5*self.seq_length, batch_size, self.vocab_size+1)
 	self:_createInitState(batch_size)
 
 	self.state = {[0] = self.init_state}
 	self.inputs = {}
 	self.lookup_tables_inputs = {}
 	
-	for t=1, 5+1+5*(self.seq_length+1) do
+	for t=1, 5+1+5*self.seq_length do
 		local xt
 		if t<=5 then
 			xt = imgs[t]
 		elseif t==6 then
-			local it = torch.LongTensor(batch_size):fill(self.vocab_size+2) --设置为终止词,end token
+			local it = torch.LongTensor(batch_size):fill(self.vocab_size+1) --设置为终止词,end token
 			self.lookup_tables_inputs[t] = it
 			xt = self.lookup_tables[t]:forward(it)
 		else
 			local it =  pro_label[t-6]:clone()
-			it[torch.eq(it,0)] = self.vocab_size + 2 --设置为终止词,end token
+			it[torch.eq(it,0)] = self.vocab_size + 1 --设置为终止词,end token
 			self.lookup_tables_inputs[t] = it
 			xt = self.lookup_tables[t]:forward(it)
 		end
@@ -334,19 +328,18 @@ function crit:updateOutput(input, labels)
 	dprint(input:size())
 	dprint('batch_size = ' .. batch_size)
 	dprint('seq_length = ' .. seq_length)
-	local pro_label = torch.LongTensor(batch_size, 5*(seq_length+1)+1):fill(0)
+	local pro_label = torch.LongTensor(batch_size, 5*seq_length):fill(0)
 	for i=1, batch_size do
-		local t=torch.LongTensor{vocab_size+2} --停止词
+		local t=torch.LongTensor{vocab_size+1} --停止词
 		for j=1, images_use_per_story do
 			local temp=labels[j][i]
 			temp=temp[torch.ne(temp,0)]
 			t=torch.cat(t,temp)
-			t=torch.cat(t,torch.LongTensor{vocab_size+1}) --逗号
 			--print(t)
 		end
 		--print(t)
 		pro_label[i][{{1,t:size(1)-1}}]:copy(t[{{2,t:size(1)}}])
-		pro_label[torch.eq(pro_label,0)]=vocab_size+2
+		pro_label[torch.eq(pro_label,0)]=vocab_size+1
 	end
 	--assert(false)
 	pro_label=pro_label:t()
@@ -372,7 +365,7 @@ function crit:updateOutput(input, labels)
 			if t==L then
 				target_index=0
 			else
-				target_index=pro_label[{t-4,b}]
+				target_index=pro_label[{t-5,b}]--pro_label中,每句话的第一个词不是停止词
 			end
 			if target_index==0 and first_time then
 				target_index=Mp1

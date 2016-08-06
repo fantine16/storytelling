@@ -178,9 +178,7 @@ function net_utils.decode_sequence(ix_to_word, seq)
       local ix = seq[{j,i}]
       local word
       if ix==vocab_size+1 then
-        word =', ' 
-      elseif ix==vocab_size+2 then
-        word =nil
+        word =nil       
       else
         word = ix_to_word[tostring(ix)]
       end

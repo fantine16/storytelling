@@ -25,12 +25,12 @@ cmd:option('-cnn_proto','model/VGG_ILSVRC_16_layers_deploy.prototxt','path to CN
 cmd:option('-cnn_model','model/VGG_ILSVRC_16_layers.caffemodel','path to CNN model file containing the weights, Caffe format. Note this MUST be a VGGNet-16 right now.')
 cmd:option('-start_from', '', 'path to a model checkpoint to initialize model weights from. Empty = don\'t')
 -- Model settings
-cmd:option('-rnn_size',512,'size of the rnn in number of hidden nodes in each layer')
-cmd:option('-input_encoding_size',512,'the encoding size of each token in the vocabulary, and the image.')
+cmd:option('-rnn_size',128,'size of the rnn in number of hidden nodes in each layer')
+cmd:option('-input_encoding_size',128,'the encoding size of each token in the vocabulary, and the image.')
 cmd:option('-rnn_type', 'gru','lstm,gru or rnn')
 -- Optimization: General
 cmd:option('-max_iters',-1, 'max number of iterations to run for (-1 = run forever)')
-cmd:option('-batch_size',32,'what is the batch size in number of images per batch? (there will be x seq_per_img sentences)')
+cmd:option('-batch_size',16,'what is the batch size in number of images per batch? (there will be x seq_per_img sentences)')
 cmd:option('-images_per_story',5,'number of images for each story during training.')
 cmd:option('-images_use_per_story', 5)
 cmd:option('-finetune_cnn_after', -1, 'After what iteration do we start finetuning the CNN? (-1 = disable; never finetune, 0 = finetune from start)')
