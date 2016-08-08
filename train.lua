@@ -29,6 +29,7 @@ cmd:option('-rnn_size',128,'size of the rnn in number of hidden nodes in each la
 cmd:option('-input_encoding_size',512,'the encoding size of each token in the vocabulary, and the image.')
 cmd:option('-rnn_type', 'gru','lstm,gru or rnn')
 -- Optimization: General
+cmd:option('-max_epoch',-1, 'max number of iterations to run for (-1 = run forever)')
 cmd:option('-max_iters',-1, 'max number of iterations to run for (-1 = run forever)')
 cmd:option('-batch_size',16,'what is the batch size in number of images per batch? (there will be x seq_per_img sentences)')
 cmd:option('-images_per_story',5,'number of images for each story during training.')
@@ -38,7 +39,10 @@ cmd:option('-grad_clip',0.05,'clip gradients at this value (note should be lower
 cmd:option('-drop_prob_lm', 0.25, 'strength of dropout in the Language Model RNN')
 -- Optimization: for the Language Model
 cmd:option('-optim','adam','what update to use? rmsprop|sgd|sgdmom|adagrad|adam')
-cmd:option('-num_layers',1,'number of hidden layers of rnn')
+cmd:option('-stacked_num_layers',1,'number of hidden layers of rnn')
+cmd:option('-HH_num_layers',0,'number of hidden layers of rnn')
+cmd:option('-HO_num_layers',1,'number of hidden layers of rnn')
+
 cmd:option('-learning_rate',0.0004,'learning rate')
 cmd:option('-learning_rate_decay_start', 20000, 'at what iteration to start decaying learning rate? (-1 = dont)')
 cmd:option('-learning_rate_decay_every', 30000, 'every how many iterations thereafter to drop LR by half?')
@@ -103,7 +107,9 @@ else
 	lmOpt.vocab_size = loader:getVocabSize()
 	lmOpt.input_encoding_size = opt.input_encoding_size
 	lmOpt.rnn_size = opt.rnn_size
-	lmOpt.num_layers = opt.num_layers
+	lmOpt.stacked_num_layers = opt.stacked_num_layers
+	lmOpt.HH_num_layers = opt.HH_num_layers
+	lmOpt.HO_num_layers = opt.HO_num_layers
 	lmOpt.dropout = opt.drop_prob_lm
 	lmOpt.seq_length = loader:getSeqLength()
 	lmOpt.batch_size = opt.batch_size * opt.images_per_story
@@ -382,5 +388,6 @@ while true do
 		break
 	end
 	if opt.max_iters > 0 and iter >= opt.max_iters then break end -- stopping criterion
+	if opt.max_epoch > 0 and iter*opt.batch_size/num_train >= opt.max_epoch then break end -- stopping criterion
 	
 end

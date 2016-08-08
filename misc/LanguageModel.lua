@@ -17,7 +17,9 @@ function layer:__init(opt)
 	self.vocab_size = utils.getopt(opt, 'vocab_size') -- required
 	self.input_encoding_size = utils.getopt(opt, 'input_encoding_size')
 	self.rnn_size = utils.getopt(opt, 'rnn_size')
-	self.num_layers = utils.getopt(opt, 'num_layers', 1)
+	self.stacked_num_layers = utils.getopt(opt, 'stacked_num_layers', 1)
+	self.HH_num_layers = utils.getopt(opt, 'HH_num_layers', 1)
+	self.HO_num_layers = utils.getopt(opt, 'HO_num_layers', 1)
 	self.images_per_story = utils.getopt(opt,'images_per_story',5)
 	self.images_use_per_story = utils.getopt(opt,'images_use_per_story',5)
 	local dropout = utils.getopt(opt, 'dropout', 0)
@@ -28,11 +30,11 @@ function layer:__init(opt)
 	--单词表添加"停止词"和"逗号"
 
 	if self.rnn_type == 'lstm' then
-		self.core = LSTM.lstm(self.input_encoding_size, self.vocab_size + 2, self.rnn_size, self.num_layers, dropout)
+		self.core = LSTM.lstm(self.input_encoding_size, self.vocab_size + 2, self.rnn_size, self.stacked_num_layers,self.HH_num_layers,self.HO_num_layers, dropout)
 	elseif self.rnn_type == 'gru' then
-		self.core = GRU.gru(self.input_encoding_size, self.vocab_size + 2, self.rnn_size, self.num_layers, dropout)
+		self.core = GRU.gru(self.input_encoding_size, self.vocab_size + 2, self.rnn_size, self.stacked_num_layers,self.HH_num_layers,self.HO_num_layers, dropout)
 	elseif self.rnn_type == 'rnn' then 
-		self.core = RNN.rnn(self.input_encoding_size, self.vocab_size + 2, self.rnn_size, self.num_layers, dropout)
+		self.core = RNN.rnn(self.input_encoding_size, self.vocab_size + 2, self.rnn_size, self.stacked_num_layers,self.HH_num_layers,self.HO_num_layers, dropout)
 	end
 
 	self.lookup_table = nn.LookupTable(self.vocab_size + 2, self.input_encoding_size)
