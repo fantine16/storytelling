@@ -28,6 +28,7 @@ cmd:option('-start_from', '', 'path to a model checkpoint to initialize model we
 cmd:option('-rnn_size',768,'size of the rnn in number of hidden nodes in each layer')
 cmd:option('-input_encoding_size',768,'the encoding size of each token in the vocabulary, and the image.')
 -- Optimization: General
+cmd:option('-max_epoch',15, 'max number of epoch to run for (-1 = run forever)')
 cmd:option('-max_iters',-1, 'max number of iterations to run for (-1 = run forever)')
 cmd:option('-batch_size',32,'what is the batch size in number of images per batch? (there will be x seq_per_img sentences)')
 cmd:option('-images_per_story',5,'number of images for each story during training.')
@@ -380,5 +381,6 @@ while true do
 		break
 	end
 	if opt.max_iters > 0 and iter >= opt.max_iters then break end -- stopping criterion
+	if opt.max_epoch > 0 and iter*opt.batch_size/num_train >= opt.max_epoch then break end -- stopping criterion
 	
 end
