@@ -146,7 +146,7 @@ function layer:sample(data, opt)
 	local state = self.init_state
 
 	local seq = torch.LongTensor(5*seq_length,batch_size):zero()
-	local seqLogprobs= torch.FloatTensor(5*seq_lengt,batch_size)
+	local seqLogprobs= torch.FloatTensor(5*seq_length,batch_size)
 	local logprobs --(batch_size, vocab_size+2), (4,9772)
 	
 	for t=1,5+1+5*seq_length do

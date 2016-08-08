@@ -25,8 +25,8 @@ cmd:option('-cnn_proto','model/VGG_ILSVRC_16_layers_deploy.prototxt','path to CN
 cmd:option('-cnn_model','model/VGG_ILSVRC_16_layers.caffemodel','path to CNN model file containing the weights, Caffe format. Note this MUST be a VGGNet-16 right now.')
 cmd:option('-start_from', '', 'path to a model checkpoint to initialize model weights from. Empty = don\'t')
 -- Model settings
-cmd:option('-rnn_size',128,'size of the rnn in number of hidden nodes in each layer')
-cmd:option('-input_encoding_size',128,'the encoding size of each token in the vocabulary, and the image.')
+cmd:option('-rnn_size',768,'size of the rnn in number of hidden nodes in each layer')
+cmd:option('-input_encoding_size',768,'the encoding size of each token in the vocabulary, and the image.')
 cmd:option('-rnn_type', 'gru','lstm,gru or rnn')
 -- Optimization: General
 cmd:option('-max_iters',-1, 'max number of iterations to run for (-1 = run forever)')
@@ -35,7 +35,7 @@ cmd:option('-images_per_story',5,'number of images for each story during trainin
 cmd:option('-images_use_per_story', 5)
 cmd:option('-finetune_cnn_after', -1, 'After what iteration do we start finetuning the CNN? (-1 = disable; never finetune, 0 = finetune from start)')
 cmd:option('-grad_clip',0.1,'clip gradients at this value (note should be lower than usual 5 because we normalize grads by both batch and seq_length)')
-cmd:option('-drop_prob_lm', 0.5, 'strength of dropout in the Language Model RNN')
+cmd:option('-drop_prob_lm', 0.75, 'strength of dropout in the Language Model RNN')
 -- Optimization: for the Language Model
 cmd:option('-optim','adam','what update to use? rmsprop|sgd|sgdmom|adagrad|adam')
 cmd:option('-num_layers',2,'number of hidden layers of rnn')
@@ -54,7 +54,7 @@ cmd:option('-cnn_weight_decay', 0, 'L2 weight decay just for the CNN')
 
 
 -- Evaluation/Checkpointing
-cmd:option('-val_images_use', 64, 'how many images to use when periodically evaluating the validation loss? (-1 = all)')
+cmd:option('-val_images_use', 1000, 'how many images to use when periodically evaluating the validation loss? (-1 = all)')
 cmd:option('-losses_log_every', 1000, 'How often do we snapshot losses, for inclusion in the progress dump? (0 = disable)')
 cmd:option('-save_checkpoint_every', 1000,'how often to save a model checkpoint?')
 cmd:option('-checkpoint_path', '', 'folder to save checkpoints into (empty = this folder)')
